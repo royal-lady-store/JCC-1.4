@@ -7,8 +7,8 @@
   'use strict';
 
   // Explicit Supabase Configuration Constants
-  const SUPABASE_URL = "https://swackggwmzjnikesfvnf.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pMYO7tvI8blebYkvnMm8hQ_PrfaNgMF";
+  const SUPABASE_URL = "https://qvpnmudxxwpochskjxkr.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_i4LlGZGARNTYiPPZH77RSg_TqJp9tEG";
 
   // Core Business Metadata & Static Configuration Constants
   const JCC_CONFIG = {
@@ -107,10 +107,7 @@
 
   // Restore authenticated session and determine role server-side
   async function syncSession() {
-    if (!supabaseClient) {
-      switchView('setup');
-      return;
-    }
+    if (!supabaseClient) return;
 
     try {
       const { data: { session }, error } = await supabaseClient.auth.getSession();
@@ -170,8 +167,7 @@
   async function handleApplicantRegister(e) {
     e.preventDefault();
     if (!supabaseClient) {
-      showToast('Backend is not configured. Please supply Supabase keys.', 'error');
-      switchView('setup');
+      showToast('Database connection unavailable.', 'error');
       return;
     }
 
@@ -237,8 +233,7 @@
   async function handleApplicantLogin(e) {
     e.preventDefault();
     if (!supabaseClient) {
-      showToast('Backend is not connected.', 'error');
-      switchView('setup');
+      showToast('Database connection unavailable.', 'error');
       return;
     }
 
@@ -291,8 +286,7 @@
   async function handleAdminLogin(e) {
     e.preventDefault();
     if (!supabaseClient) {
-      showToast('Backend is not connected.', 'error');
-      switchView('setup');
+      showToast('Database connection unavailable.', 'error');
       return;
     }
 
@@ -1116,8 +1110,7 @@
   async function handleVerifyCertificate(e) {
     e.preventDefault();
     if (!supabaseClient) {
-      showToast('Backend is not connected.', 'error');
-      switchView('setup');
+      showToast('Database connection unavailable.', 'error');
       return;
     }
 
@@ -1217,7 +1210,7 @@
 
       doc.setDrawColor(212, 175, 55);
       doc.setLineWidth(0.5);
-      doc.line(30, 48, 180, 48);
+      doc.line(30, 46, 180, 46);
 
       // Certificate Details
       doc.setFontSize(11);
@@ -1320,8 +1313,7 @@
   async function handleContactSubmit(e) {
     e.preventDefault();
     if (!supabaseClient) {
-      showToast('Backend is not connected.', 'error');
-      switchView('setup');
+      showToast('Database connection unavailable.', 'error');
       return;
     }
 
@@ -1355,22 +1347,6 @@
   document.addEventListener('DOMContentLoaded', async () => {
     initSupabase();
 
-    // Setup configuration save button
-    document.getElementById('btn-save-runtime-cfg')?.addEventListener('click', () => {
-      const url = document.getElementById('cfg-supabase-url').value.trim();
-      const key = document.getElementById('cfg-supabase-key').value.trim();
-      if (!url || !key) {
-        showToast('Please provide both Project URL and Anon Key.', 'warning');
-        return;
-      }
-      localStorage.setItem('jcc_supabase_url', url);
-      localStorage.setItem('jcc_supabase_key', key);
-      initSupabase();
-      showToast('Database configuration stored. Connecting...', 'success');
-      syncSession();
-      switchView('home');
-    });
-
     // Mobile Hamburger
     const menuToggle = document.getElementById('menu-toggle');
     const siteNav = document.getElementById('site-nav');
@@ -1390,7 +1366,7 @@
       }
     });
 
-    // Eye toggles
+    // Password visibility eye toggles
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-toggle-eye');
       if (btn) {

@@ -61,31 +61,6 @@
   <!-- Primary Application Viewport -->
   <main id="app-viewport">
 
-    <!-- VIEW 0: SETUP WARNING (Visible ONLY when constants are unconfigured) -->
-    <section id="view-setup" class="view-panel hidden">
-      <div class="container container-sm">
-        <div class="card setup-card text-center">
-          <div class="card-icon">⚙️</div>
-          <h2>Database Configuration Required</h2>
-          <p class="text-muted text-sm">
-            To activate real online user accounts, cross-device tracking, and secure document storage, please enter your Supabase Project URL and Public Anon Key once in <code>app.js</code> or below.
-          </p>
-          <div class="form-group text-left" style="margin-top: 1.5rem;">
-            <label for="cfg-supabase-url">Supabase Project URL</label>
-            <input type="url" id="cfg-supabase-url" class="form-control" placeholder="https://xyz.supabase.co" autocomplete="off" />
-          </div>
-          <div class="form-group text-left">
-            <label for="cfg-supabase-key">Supabase Public Anon Key</label>
-            <input type="text" id="cfg-supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." autocomplete="off" />
-          </div>
-          <button type="button" id="btn-save-runtime-cfg" class="btn btn-primary btn-block">Connect Live Backend</button>
-          <p class="text-muted text-xs" style="margin-top: 1rem;">
-            Saving here stores values in your browser; editing <code>app.js</code> permanently establishes it for all visitors on GitHub Pages.
-          </p>
-        </div>
-      </div>
-    </section>
-
     <!-- VIEW 1: HOME (Landing Page) -->
     <section id="view-home" class="view-panel active">
       <div class="hero">
