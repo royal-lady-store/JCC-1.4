@@ -3,32 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JCC — Jahir Clearance Certificate | Private Application Assistance Portal</title>
+  <title>JCC — Jahir Clearance Certificate | Verification & Application Portal</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Lightweight client libraries for QR code generation & PDF creation without backend requirements -->
+  <!-- Official UMD client bundles to ensure guaranteed global availability on static hosting -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-  <!-- Statutory Legal Disclaimer Banner -->
-  <aside class="disclaimer-banner" role="note" aria-label="Official Disclaimer">
-    <div class="container disclaimer-content">
-      <span class="badge badge-warning">Statutory Notice</span>
+  <!-- Mandatory Statutory Notice -->
+  <aside class="statutory-banner" role="note" aria-label="Official Disclaimer">
+    <div class="container banner-inner">
+      <span class="banner-pill">Notice</span>
       <p>
-        <strong>Legal Disclaimer:</strong> JCC is an independent, private application assistance service owned and operated by Mr. Jahir Narjinary. It is <strong>not</strong> an official government agency, department, or police authority. Any document issued through JCC is not an official Police Clearance Certificate (PCC) and must not be represented as such.
+        JCC is a privately operated application assistance and credential verification service owned by Mr. Jahir Narjinary. It is <strong>not</strong> an official government agency, ministry, or police department. A JCC credential does <strong>not</strong> constitute an official Police Clearance Certificate (PCC) and must not be represented as such under any circumstances.
       </p>
     </div>
   </aside>
 
   <!-- Global Header Navigation -->
   <header class="site-header">
-    <div class="container header-flex">
+    <div class="container header-inner">
       <a href="#home" class="brand" data-view="home">
-        <span class="brand-crest">JCC</span>
-        <span class="brand-text">
+        <span class="brand-emblem">JCC</span>
+        <span class="brand-meta">
           <span class="brand-title">Jahir Clearance Certificate</span>
-          <span class="brand-subtitle">Private Record &amp; Reference Verification Registry</span>
+          <span class="brand-sub">Private Reference &amp; Verification Registry</span>
         </span>
       </a>
 
@@ -37,37 +38,62 @@
       </button>
 
       <nav id="site-nav" class="site-nav" aria-label="Main Navigation">
-        <a href="#home" class="nav-link active" data-view="home">Home</a>
-        <a href="#verify" class="nav-link" data-view="verify">Verify Certificate</a>
-        <a href="#contact" class="nav-link" data-view="contact">Contact</a>
+        <a href="#home" class="nav-item active" data-view="home">Home</a>
+        <a href="#verify" class="nav-item" data-view="verify">Verify Certificate</a>
+        <a href="#contact" class="nav-item" data-view="contact">Contact Us</a>
 
-        <div id="nav-unauth-group" class="nav-group">
+        <div id="nav-unauth-group" class="nav-cluster">
           <a href="#login" class="btn btn-outline" data-view="login">Applicant Sign In</a>
           <a href="#admin-login" class="btn btn-gold" data-view="admin-login">Staff Access</a>
         </div>
 
-        <div id="nav-auth-group" class="nav-group hidden">
+        <div id="nav-auth-group" class="nav-cluster hidden">
           <a href="#dashboard" id="btn-nav-dashboard" class="btn btn-primary" data-view="dashboard">My Dashboard</a>
-          <button type="button" id="btn-global-logout" class="btn btn-text">Log Out</button>
+          <button type="button" id="btn-global-logout" class="btn btn-text">Sign Out</button>
         </div>
       </nav>
     </div>
   </header>
 
-  <!-- Global Toast Notification Stack -->
+  <!-- Notification Toast Container -->
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 
-  <!-- Primary Application Views -->
+  <!-- Primary Application Viewport -->
   <main id="app-viewport">
+
+    <!-- VIEW 0: SETUP WARNING (Visible when Supabase credentials are missing) -->
+    <section id="view-setup" class="view-panel hidden">
+      <div class="container container-sm">
+        <div class="card setup-card text-center">
+          <div class="card-icon">⚙️</div>
+          <h2>Database Configuration Required</h2>
+          <p class="text-muted text-sm">
+            To enable live cross-device synchronization, secure online document uploads, persistent applicant authentication, and authorized administrator management, configure your hosted Supabase credentials below.
+          </p>
+          <div class="form-group text-left" style="margin-top: 1.5rem;">
+            <label for="cfg-supabase-url">Supabase Project URL</label>
+            <input type="url" id="cfg-supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co" autocomplete="off" />
+          </div>
+          <div class="form-group text-left">
+            <label for="cfg-supabase-key">Supabase Public Anon Key</label>
+            <input type="text" id="cfg-supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." autocomplete="off" />
+          </div>
+          <button type="button" id="btn-save-runtime-cfg" class="btn btn-primary btn-block">Connect Live Backend</button>
+          <p class="text-muted text-xs" style="margin-top: 1rem;">
+            Credentials can also be permanently embedded directly inside the <code>JCC_CONFIG</code> object within <code>app.js</code>. Refer to <code>README.md</code> for exact SQL setup steps.
+          </p>
+        </div>
+      </div>
+    </section>
 
     <!-- VIEW 1: HOME (Landing Page) -->
     <section id="view-home" class="view-panel active">
       <div class="hero">
         <div class="container hero-inner text-center">
-          <span class="badge badge-gold">Independent Background Registry</span>
-          <h1 class="hero-title">Standardized Private Record Screening &amp; Verification Assistance</h1>
+          <span class="badge badge-gold">Independent Background Verification Desk</span>
+          <h1 class="hero-title">Standardized Private Screening &amp; Reference Verification Assistance</h1>
           <p class="hero-desc">
-            Structured personal reference screening, address corroboration, and private record archiving for domestic tenancy, private employment, and personal credential management.
+            Reliable identity corroboration, residence validation, and reference screening for private employment, domestic tenancy, and personal background authentication records.
           </p>
           <div class="hero-actions">
             <a href="#register" class="btn btn-gold btn-lg" data-view="register">Apply for Certificate (₹100)</a>
@@ -78,20 +104,20 @@
 
       <div class="container section-spacing">
         <div class="grid grid-3">
-          <div class="card text-center">
+          <div class="card card-animated text-center">
             <div class="card-icon">📋</div>
             <h3>Structured Review</h3>
-            <p class="text-muted">Standardized review of address documentation, identification records, and local reference cataloging.</p>
+            <p class="text-muted">Standardized evaluation of residence proofs, identity records, and independent corroboration with two local references.</p>
           </div>
-          <div class="card text-center">
+          <div class="card card-animated text-center">
             <div class="card-icon">🔒</div>
-            <h3>Independent Archiving</h3>
-            <p class="text-muted">Client-side document evaluation and persistent client ledger tracking with zero hidden external trackers.</p>
+            <h3>Zero-Disclosure Privacy</h3>
+            <p class="text-muted">Private documents are stored in secure buckets under Row Level Security. Public verification never exposes private documents, full addresses, or identification numbers.</p>
           </div>
-          <div class="card text-center">
-            <div class="card-icon">🔍</div>
-            <h3>Live Verification</h3>
-            <p class="text-muted">Every issued certificate includes a unique registry serial, 6-month validity period, and instant verification interface.</p>
+          <div class="card card-animated text-center">
+            <div class="card-icon">⚡</div>
+            <h3>Tamper-Evident Ledger</h3>
+            <p class="text-muted">Certificates feature unique cryptographic serials, 6-month validity calculations, and embedded real-time validation QR codes.</p>
           </div>
         </div>
       </div>
@@ -99,34 +125,35 @@
       <div class="bg-surface section-spacing border-y">
         <div class="container">
           <div class="section-heading text-center">
-            <h2>How JCC Assistance Works</h2>
+            <h2>How JCC Verification Works</h2>
             <p class="text-muted">A clear, 4-step assistance procedure designed for complete transparency</p>
           </div>
           <div class="grid grid-4 step-flow">
             <div class="step-card">
               <span class="step-num">01</span>
-              <h4>Register</h4>
-              <p>Create an applicant account with your User ID and password—no OTP or email confirmation delay required.</p>
+              <h4>Register Account</h4>
+              <p>Create a live persistent account using your User ID and password across any phone, tablet, or desktop.</p>
             </div>
             <div class="step-card">
               <span class="step-num">02</span>
               <h4>Submit Details</h4>
-              <p>Complete the application form, upload your photo and address proof, and verify every field on the live preview screen.</p>
+              <p>Upload your photograph, address proof, and verify every field on the complete verification preview screen.</p>
             </div>
             <div class="step-card">
               <span class="step-num">03</span>
               <h4>Pay Fee</h4>
-              <p>Transfer the fixed ₹100 processing charge via the office UPI QR code and submit your 12-digit transaction UTR reference.</p>
+              <p>Remit the ₹100 fee via office UPI QR code and enter your official 12-digit transaction UTR reference.</p>
             </div>
             <div class="step-card">
               <span class="step-num">04</span>
-              <h4>Issuance</h4>
-              <p>Once independently approved by staff, download your verified digital certificate PDF directly.</p>
+              <h4>Issuance &amp; PDF</h4>
+              <p>Once independently approved by staff, download your verified certificate PDF directly to your device.</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- FAQ Section -->
       <div class="container section-spacing">
         <div class="section-heading text-center">
           <h2>Frequently Asked Questions</h2>
@@ -135,13 +162,13 @@
           <details class="faq-item">
             <summary>Is JCC an official Government or Police Clearance Certificate (PCC)?</summary>
             <div class="faq-body">
-              <p><strong>No.</strong> JCC is strictly an independent, privately owned application assistance registry owned by Mr. Jahir Narjinary. It does not replace statutory inquiries or clearances issued by Indian state police authorities, passport offices, or government ministries.</p>
+              <p><strong>No.</strong> JCC is strictly an independent, private verification assistance registry owned by Mr. Jahir Narjinary. It does not replace statutory inquiries or clearances issued by Indian state police authorities, passport offices, or government ministries.</p>
             </div>
           </details>
           <details class="faq-item">
-            <summary>What is the processing fee and payment method?</summary>
+            <summary>What is the processing fee and payment mode?</summary>
             <div class="faq-body">
-              <p>The processing fee is fixed at <strong>₹100 (INR)</strong>. Payment is handled directly via UPI QR transfer to our verified office account. No automatic card charges or third-party gateways are utilized.</p>
+              <p>The processing fee is fixed at <strong>₹100 (INR)</strong>. Payment is handled directly via UPI QR transfer to our verified office account. No automatic credit card charges or third-party payment gateways are utilized.</p>
             </div>
           </details>
           <details class="faq-item">
@@ -158,12 +185,12 @@
     <section id="view-register" class="view-panel hidden">
       <div class="container container-sm">
         <div class="card auth-card">
-          <h2 class="text-center">Create Applicant Account</h2>
-          <p class="text-muted text-sm text-center form-sub">Register with a unique User ID and password. No OTP or email verification required.</p>
+          <h2 class="text-center">Create Live Account</h2>
+          <p class="text-muted text-sm text-center form-sub">Register your User ID to manage applications from any device. No OTP required.</p>
           <form id="form-register" novalidate>
             <div class="form-group">
-              <label for="reg-userid">User ID (Unique Username) *</label>
-              <input type="text" id="reg-userid" class="form-control" placeholder="e.g. rahul_sharma" required autocomplete="username" />
+              <label for="reg-userid">User ID (Username) *</label>
+              <input type="text" id="reg-userid" class="form-control" placeholder="e.g. rahul99" required autocomplete="username" />
               <small class="form-hint">4–20 alphanumeric characters or underscores.</small>
             </div>
             <div class="form-group">
@@ -172,7 +199,7 @@
             </div>
             <div class="form-group">
               <label for="reg-email">Email Address *</label>
-              <input type="email" id="reg-email" class="form-control" placeholder="name@domain.com" required />
+              <input type="email" id="reg-email" class="form-control" placeholder="name@domain.com" required autocomplete="email" />
             </div>
             <div class="form-group">
               <label for="reg-phone">Mobile Number (10 Digits) *</label>
@@ -195,13 +222,13 @@
             <div class="form-group checkbox-wrapper">
               <input type="checkbox" id="reg-declaration" required />
               <label for="reg-declaration">
-                I understand and acknowledge that JCC is an independent private application assistance service and is not an official government or police department authority.
+                I understand that JCC is an independent private application assistance service and is not an official government or police department authority.
               </label>
             </div>
             <button type="submit" id="btn-submit-reg" class="btn btn-primary btn-block">Complete Registration</button>
           </form>
           <div class="auth-redirect text-center">
-            Already have an account? <a href="#login" data-view="login">Sign in here</a>
+            Already registered? <a href="#login" data-view="login">Sign in here</a>
           </div>
         </div>
       </div>
@@ -212,11 +239,11 @@
       <div class="container container-sm">
         <div class="card auth-card">
           <h2 class="text-center">Applicant Sign In</h2>
-          <p class="text-muted text-sm text-center form-sub">Sign in with your User ID or email to access your applications.</p>
+          <p class="text-muted text-sm text-center form-sub">Sign in to your persistent cross-device account.</p>
           <form id="form-login" novalidate>
             <div class="form-group">
-              <label for="login-userid">User ID or Email *</label>
-              <input type="text" id="login-userid" class="form-control" placeholder="User ID or email address" required autocomplete="username" />
+              <label for="login-email">Email Address or User ID *</label>
+              <input type="text" id="login-email" class="form-control" placeholder="User ID or email address" required autocomplete="username" />
             </div>
             <div class="form-group">
               <label for="login-password">Password *</label>
@@ -243,16 +270,15 @@
           <p class="text-muted text-sm text-center form-sub">Authorized personnel verification and operations</p>
           <form id="form-admin-login" novalidate>
             <div class="form-group">
-              <label for="admin-userid">Admin Email *</label>
-              <input type="email" id="admin-userid" class="form-control" placeholder="jahirnarjinary04@gmail.com" required autocomplete="username" />
+              <label for="admin-email">Admin Email *</label>
+              <input type="email" id="admin-email" class="form-control" placeholder="jahirnarjinary04@gmail.com" required autocomplete="username" />
             </div>
             <div class="form-group">
-              <label for="admin-password">Admin Password *</label>
+              <label for="admin-password">Password *</label>
               <div class="pw-wrapper">
                 <input type="password" id="admin-password" class="form-control" required autocomplete="current-password" />
                 <button type="button" class="btn-toggle-eye" data-target="admin-password" aria-label="Toggle password view">👁️</button>
               </div>
-              <small class="form-hint">First-time staff initialize their administrative master password on their initial sign-in.</small>
             </div>
             <button type="submit" id="btn-submit-admin-login" class="btn btn-gold btn-block">Authenticate Staff Session</button>
           </form>
@@ -268,7 +294,7 @@
             <div class="user-avatar" id="dash-avatar">U</div>
             <div class="user-meta">
               <strong id="dash-user-name">Applicant</strong>
-              <small id="dash-user-id" class="text-muted">user_id</small>
+              <small id="dash-user-email" class="text-muted">email@domain.com</small>
             </div>
           </div>
           <nav class="sidebar-nav">
@@ -278,17 +304,17 @@
         </aside>
 
         <section class="dashboard-content">
-          <!-- TAB: APPLICANT OVERVIEW -->
+          <!-- TAB 1: OVERVIEW -->
           <div id="tab-overview" class="dash-tab active">
             <div class="dash-header">
               <div>
-                <h2>Applicant Dashboard</h2>
-                <p class="text-muted">Manage applications, complete payments, and download issued certificates.</p>
+                <h2>Applicant Workspace</h2>
+                <p class="text-muted">Access submitted applications, complete payment, and download certificates.</p>
               </div>
               <button type="button" class="btn btn-primary" id="btn-dash-create-app">+ Create Application</button>
             </div>
 
-            <!-- Metric Cards -->
+            <!-- Applicant Status Metric Cards -->
             <div class="grid grid-6 stat-deck">
               <div class="card stat-card active" data-filter="ALL">
                 <span class="stat-num" id="count-app-all">0</span>
@@ -312,7 +338,7 @@
               </div>
               <div class="card stat-card" data-filter="Rejected">
                 <span class="stat-num text-danger" id="count-app-rejected">0</span>
-                <span class="stat-label">Rejected Submissions</span>
+                <span class="stat-label">Rejected</span>
               </div>
             </div>
 
@@ -321,17 +347,17 @@
                 <h3>My Applications</h3>
               </div>
               <div id="applicant-records-container" class="table-responsive">
-                <p class="empty-state">No submissions recorded. Click "+ Create Application" to begin.</p>
+                <p class="empty-state">Loading your application records...</p>
               </div>
             </div>
           </div>
 
-          <!-- TAB: APPLICATION FORM -->
+          <!-- TAB 2: APPLICATION FORM -->
           <div id="tab-form" class="dash-tab hidden">
             <div class="card form-card">
               <div class="form-title-bar">
                 <h2 id="form-heading">New Clearance Application</h2>
-                <p class="text-muted text-sm">Please verify every field carefully against your legal identity records.</p>
+                <p class="text-muted text-sm">Please verify every field carefully against your legal identity documents.</p>
               </div>
 
               <form id="form-clearance-app" novalidate>
@@ -342,7 +368,7 @@
                   <legend>1. Personal Identification</legend>
                   <div class="grid grid-2">
                     <div class="form-group">
-                      <label for="app-photo">Applicant Passport Photo (Max 200 KB) *</label>
+                      <label for="app-photo">Applicant Passport Photo (JPG/PNG, Max 200 KB) *</label>
                       <input type="file" id="app-photo" class="form-control" accept=".jpg,.jpeg,.png" />
                       <small class="form-hint">Accepted formats: JPG, JPEG, PNG. Max 200 KB.</small>
                     </div>
@@ -391,7 +417,7 @@
                     <div class="form-group">
                       <label for="app-aadhaar">Aadhaar Number (12 Digits) *</label>
                       <input type="text" id="app-aadhaar" class="form-control" pattern="[0-9]{12}" maxlength="12" placeholder="12-digit numeric Aadhaar" required />
-                      <small class="form-hint">Stored strictly client-side. Never displayed on public validation screens.</small>
+                      <small class="form-hint">Protected securely under RLS. Never displayed publicly.</small>
                     </div>
                     <div class="form-group">
                       <label for="app-passport">Passport Number (Optional)</label>
@@ -551,7 +577,7 @@
             </div>
           </div>
 
-          <!-- TAB: APPLICANT PAYMENT -->
+          <!-- TAB 3: PAYMENT REMITTANCE -->
           <div id="tab-payment" class="dash-tab hidden">
             <div class="card payment-card">
               <h2>Processing Fee Remittance (₹100)</h2>
@@ -598,7 +624,7 @@
         <div class="admin-topbar">
           <div>
             <h2>Staff Operations Control Panel</h2>
-            <p class="text-muted">Review submissions, audit payments, inspect credentials, and manage certificates.</p>
+            <p class="text-muted">Live database synchronized: review submissions, audit payments, inspect credentials, and manage certificates.</p>
           </div>
           <div class="admin-quick-actions">
             <button type="button" class="btn btn-outline btn-sm" id="btn-admin-refresh">🔄 Refresh</button>
@@ -606,7 +632,7 @@
           </div>
         </div>
 
-        <!-- 6 Admin Metric Cards -->
+        <!-- 6 Functional Admin Metric Cards -->
         <div class="grid grid-6 stat-deck">
           <div class="card stat-card active" data-admin-filter="ALL">
             <span class="stat-num" id="admin-count-all">0</span>
@@ -654,7 +680,7 @@
 
         <div class="card">
           <div id="admin-table-container" class="table-responsive">
-            <p class="empty-state">Loading registry submissions...</p>
+            <p class="empty-state">Loading registry submissions from live database...</p>
           </div>
         </div>
       </div>
@@ -712,7 +738,7 @@
           </div>
 
           <div class="card">
-            <h3>Send an Official Message</h3>
+            <h3>Send an Official Inquiry</h3>
             <form id="form-contact" novalidate>
               <div class="form-group">
                 <label for="contact-name">Your Full Name *</label>
@@ -738,7 +764,7 @@
     </section>
   </main>
 
-  <!-- MODAL 1: FORM PREVIEW -->
+  <!-- MODAL: APPLICATION PREVIEW & FINAL CONFIRMATION -->
   <div id="modal-preview" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-preview-title">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
@@ -753,7 +779,7 @@
     </div>
   </div>
 
-  <!-- MODAL 2: ADMIN APPLICATION REVIEW & AUDIT -->
+  <!-- MODAL: ADMIN APPLICATION INSPECTION, AUDIT & DOCUMENT REVIEW -->
   <div id="modal-admin-review" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-review-title">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
@@ -764,11 +790,11 @@
     </div>
   </div>
 
-  <!-- MODAL 3: ADMIN UPI CONFIGURATION -->
+  <!-- MODAL: ADMIN UPI CONFIGURATION -->
   <div id="modal-admin-upi" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-upi-title">
     <div class="modal-dialog modal-sm">
       <div class="modal-header">
-        <h3 id="modal-upi-title">Update UPI Payment Settings</h3>
+        <h3 id="modal-upi-title">UPI Payment Settings</h3>
         <button type="button" class="btn-close-modal" id="btn-close-upi-modal" aria-label="Close modal">&times;</button>
       </div>
       <div class="modal-body">
