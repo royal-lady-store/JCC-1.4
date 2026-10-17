@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JCC — Jahir Clearance Certificate | Private Application Assistance Portal</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Lightweight client libraries for QR code generation & PDF creation without backend requirements -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Statutory Legal Disclaimer Banner -->
+  <aside class="disclaimer-banner" role="note" aria-label="Official Disclaimer">
+    <div class="container disclaimer-content">
+      <span class="badge badge-warning">Statutory Notice</span>
+      <p>
+        <strong>Legal Disclaimer:</strong> JCC is an independent, private application assistance service owned and operated by Mr. Jahir Narjinary. It is <strong>not</strong> an official government agency, department, or police authority. Any document issued through JCC is not an official Police Clearance Certificate (PCC) and must not be represented as such.
+      </p>
+    </div>
+  </aside>
+
+  <!-- Global Header Navigation -->
+  <header class="site-header">
+    <div class="container header-flex">
+      <a href="#home" class="brand" data-view="home">
+        <span class="brand-crest">JCC</span>
+        <span class="brand-text">
+          <span class="brand-title">Jahir Clearance Certificate</span>
+          <span class="brand-subtitle">Private Record &amp; Reference Verification Registry</span>
+        </span>
+      </a>
+
+      <button id="menu-toggle" class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav id="site-nav" class="site-nav" aria-label="Main Navigation">
+        <a href="#home" class="nav-link active" data-view="home">Home</a>
+        <a href="#verify" class="nav-link" data-view="verify">Verify Certificate</a>
+        <a href="#contact" class="nav-link" data-view="contact">Contact</a>
+
+        <div id="nav-unauth-group" class="nav-group">
+          <a href="#login" class="btn btn-outline" data-view="login">Applicant Sign In</a>
+          <a href="#admin-login" class="btn btn-gold" data-view="admin-login">Staff Access</a>
+        </div>
+
+        <div id="nav-auth-group" class="nav-group hidden">
+          <a href="#dashboard" id="btn-nav-dashboard" class="btn btn-primary" data-view="dashboard">My Dashboard</a>
+          <button type="button" id="btn-global-logout" class="btn btn-text">Log Out</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Global Toast Notification Stack -->
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+  <!-- Primary Application Views -->
+  <main id="app-viewport">
+
+    <!-- VIEW 1: HOME (Landing Page) -->
+    <section id="view-home" class="view-panel active">
+      <div class="hero">
+        <div class="container hero-inner text-center">
+          <span class="badge badge-gold">Independent Background Registry</span>
+          <h1 class="hero-title">Standardized Private Record Screening &amp; Verification Assistance</h1>
+          <p class="hero-desc">
+            Structured personal reference screening, address corroboration, and private record archiving for domestic tenancy, private employment, and personal credential management.
+          </p>
+          <div class="hero-actions">
+            <a href="#register" class="btn btn-gold btn-lg" data-view="register">Apply for Certificate (₹100)</a>
+            <a href="#verify" class="btn btn-outline-light btn-lg" data-view="verify">Verify an Issued JCC</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="container section-spacing">
+        <div class="grid grid-3">
+          <div class="card text-center">
+            <div class="card-icon">📋</div>
+            <h3>Structured Review</h3>
+            <p class="text-muted">Standardized review of address documentation, identification records, and local reference cataloging.</p>
+          </div>
+          <div class="card text-center">
+            <div class="card-icon">🔒</div>
+            <h3>Independent Archiving</h3>
+            <p class="text-muted">Client-side document evaluation and persistent client ledger tracking with zero hidden external trackers.</p>
+          </div>
+          <div class="card text-center">
+            <div class="card-icon">🔍</div>
+            <h3>Live Verification</h3>
+            <p class="text-muted">Every issued certificate includes a unique registry serial, 6-month validity period, and instant verification interface.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-surface section-spacing border-y">
+        <div class="container">
+          <div class="section-heading text-center">
+            <h2>How JCC Assistance Works</h2>
+            <p class="text-muted">A clear, 4-step assistance procedure designed for complete transparency</p>
+          </div>
+          <div class="grid grid-4 step-flow">
+            <div class="step-card">
+              <span class="step-num">01</span>
+              <h4>Register</h4>
+              <p>Create an applicant account with your User ID and password—no OTP or email confirmation delay required.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">02</span>
+              <h4>Submit Details</h4>
+              <p>Complete the application form, upload your photo and address proof, and verify every field on the live preview screen.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">03</span>
+              <h4>Pay Fee</h4>
+              <p>Transfer the fixed ₹100 processing charge via the office UPI QR code and submit your 12-digit transaction UTR reference.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">04</span>
+              <h4>Issuance</h4>
+              <p>Once independently approved by staff, download your verified digital certificate PDF directly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="container section-spacing">
+        <div class="section-heading text-center">
+          <h2>Frequently Asked Questions</h2>
+        </div>
+        <div class="faq-deck">
+          <details class="faq-item">
+            <summary>Is JCC an official Government or Police Clearance Certificate (PCC)?</summary>
+            <div class="faq-body">
+              <p><strong>No.</strong> JCC is strictly an independent, privately owned application assistance registry owned by Mr. Jahir Narjinary. It does not replace statutory inquiries or clearances issued by Indian state police authorities, passport offices, or government ministries.</p>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary>What is the processing fee and payment method?</summary>
+            <div class="faq-body">
+              <p>The processing fee is fixed at <strong>₹100 (INR)</strong>. Payment is handled directly via UPI QR transfer to our verified office account. No automatic card charges or third-party gateways are utilized.</p>
+            </div>
+          </details>
+          <details class="faq-item">
+            <summary>How long is an issued JCC clearance certificate valid?</summary>
+            <div class="faq-body">
+              <p>All issued certificates remain valid for exactly <strong>six (6) calendar months</strong> from the date of formal approval and staff issuance.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: APPLICANT REGISTRATION -->
+    <section id="view-register" class="view-panel hidden">
+      <div class="container container-sm">
+        <div class="card auth-card">
+          <h2 class="text-center">Create Applicant Account</h2>
+          <p class="text-muted text-sm text-center form-sub">Register with a unique User ID and password. No OTP or email verification required.</p>
+          <form id="form-register" novalidate>
+            <div class="form-group">
+              <label for="reg-userid">User ID (Unique Username) *</label>
+              <input type="text" id="reg-userid" class="form-control" placeholder="e.g. rahul_sharma" required autocomplete="username" />
+              <small class="form-hint">4–20 alphanumeric characters or underscores.</small>
+            </div>
+            <div class="form-group">
+              <label for="reg-fullname">Full Legal Name *</label>
+              <input type="text" id="reg-fullname" class="form-control" placeholder="As written in official records" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-email">Email Address *</label>
+              <input type="email" id="reg-email" class="form-control" placeholder="name@domain.com" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-phone">Mobile Number (10 Digits) *</label>
+              <input type="tel" id="reg-phone" class="form-control" pattern="[6-9][0-9]{9}" placeholder="9876543210" required />
+            </div>
+            <div class="form-group">
+              <label for="reg-password">Password (Minimum 8 Characters) *</label>
+              <div class="pw-wrapper">
+                <input type="password" id="reg-password" class="form-control" minlength="8" required autocomplete="new-password" />
+                <button type="button" class="btn-toggle-eye" data-target="reg-password" aria-label="Toggle password view">👁️</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="reg-confirm-password">Confirm Password *</label>
+              <div class="pw-wrapper">
+                <input type="password" id="reg-confirm-password" class="form-control" minlength="8" required autocomplete="new-password" />
+                <button type="button" class="btn-toggle-eye" data-target="reg-confirm-password" aria-label="Toggle confirm password view">👁️</button>
+              </div>
+            </div>
+            <div class="form-group checkbox-wrapper">
+              <input type="checkbox" id="reg-declaration" required />
+              <label for="reg-declaration">
+                I understand and acknowledge that JCC is an independent private application assistance service and is not an official government or police department authority.
+              </label>
+            </div>
+            <button type="submit" id="btn-submit-reg" class="btn btn-primary btn-block">Complete Registration</button>
+          </form>
+          <div class="auth-redirect text-center">
+            Already have an account? <a href="#login" data-view="login">Sign in here</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: APPLICANT SIGN IN -->
+    <section id="view-login" class="view-panel hidden">
+      <div class="container container-sm">
+        <div class="card auth-card">
+          <h2 class="text-center">Applicant Sign In</h2>
+          <p class="text-muted text-sm text-center form-sub">Sign in with your User ID or email to access your applications.</p>
+          <form id="form-login" novalidate>
+            <div class="form-group">
+              <label for="login-userid">User ID or Email *</label>
+              <input type="text" id="login-userid" class="form-control" placeholder="User ID or email address" required autocomplete="username" />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password *</label>
+              <div class="pw-wrapper">
+                <input type="password" id="login-password" class="form-control" required autocomplete="current-password" />
+                <button type="button" class="btn-toggle-eye" data-target="login-password" aria-label="Toggle password view">👁️</button>
+              </div>
+            </div>
+            <button type="submit" id="btn-submit-login" class="btn btn-primary btn-block">Sign In</button>
+          </form>
+          <div class="auth-redirect text-center">
+            Need an account? <a href="#register" data-view="register">Create one now</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: ADMIN SIGN IN -->
+    <section id="view-admin-login" class="view-panel hidden">
+      <div class="container container-sm">
+        <div class="card auth-card admin-highlight">
+          <div class="admin-badge text-center">Administrative Staff Portal</div>
+          <h2 class="text-center">Staff Sign In</h2>
+          <p class="text-muted text-sm text-center form-sub">Authorized personnel verification and operations</p>
+          <form id="form-admin-login" novalidate>
+            <div class="form-group">
+              <label for="admin-userid">Admin Email *</label>
+              <input type="email" id="admin-userid" class="form-control" placeholder="jahirnarjinary04@gmail.com" required autocomplete="username" />
+            </div>
+            <div class="form-group">
+              <label for="admin-password">Admin Password *</label>
+              <div class="pw-wrapper">
+                <input type="password" id="admin-password" class="form-control" required autocomplete="current-password" />
+                <button type="button" class="btn-toggle-eye" data-target="admin-password" aria-label="Toggle password view">👁️</button>
+              </div>
+              <small class="form-hint">First-time staff initialize their administrative master password on their initial sign-in.</small>
+            </div>
+            <button type="submit" id="btn-submit-admin-login" class="btn btn-gold btn-block">Authenticate Staff Session</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 5: APPLICANT DASHBOARD -->
+    <section id="view-dashboard" class="view-panel hidden">
+      <div class="dashboard-shell">
+        <aside class="sidebar">
+          <div class="sidebar-user">
+            <div class="user-avatar" id="dash-avatar">U</div>
+            <div class="user-meta">
+              <strong id="dash-user-name">Applicant</strong>
+              <small id="dash-user-id" class="text-muted">user_id</small>
+            </div>
+          </div>
+          <nav class="sidebar-nav">
+            <button type="button" class="sidebar-link active" data-tab="tab-overview">Dashboard Overview</button>
+            <button type="button" class="sidebar-link" id="btn-sidebar-new-app" data-tab="tab-form">+ New Application</button>
+          </nav>
+        </aside>
+
+        <section class="dashboard-content">
+          <!-- TAB: APPLICANT OVERVIEW -->
+          <div id="tab-overview" class="dash-tab active">
+            <div class="dash-header">
+              <div>
+                <h2>Applicant Dashboard</h2>
+                <p class="text-muted">Manage applications, complete payments, and download issued certificates.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="btn-dash-create-app">+ Create Application</button>
+            </div>
+
+            <!-- Metric Cards -->
+            <div class="grid grid-6 stat-deck">
+              <div class="card stat-card active" data-filter="ALL">
+                <span class="stat-num" id="count-app-all">0</span>
+                <span class="stat-label">All Submissions</span>
+              </div>
+              <div class="card stat-card" data-filter="Draft">
+                <span class="stat-num" id="count-app-draft">0</span>
+                <span class="stat-label">Drafts</span>
+              </div>
+              <div class="card stat-card" data-filter="Payment Pending">
+                <span class="stat-num text-warning" id="count-app-paypending">0</span>
+                <span class="stat-label">Payment Pending</span>
+              </div>
+              <div class="card stat-card" data-filter="Pending for Approval">
+                <span class="stat-num text-info" id="count-app-approval">0</span>
+                <span class="stat-label">Approval Pending</span>
+              </div>
+              <div class="card stat-card" data-filter="Certificate Issued">
+                <span class="stat-num text-success" id="count-app-issued">0</span>
+                <span class="stat-label">Certificate Issued</span>
+              </div>
+              <div class="card stat-card" data-filter="Rejected">
+                <span class="stat-num text-danger" id="count-app-rejected">0</span>
+                <span class="stat-label">Rejected Submissions</span>
+              </div>
+            </div>
+
+            <div class="card section-spacing-top">
+              <div class="table-header">
+                <h3>My Applications</h3>
+              </div>
+              <div id="applicant-records-container" class="table-responsive">
+                <p class="empty-state">No submissions recorded. Click "+ Create Application" to begin.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: APPLICATION FORM -->
+          <div id="tab-form" class="dash-tab hidden">
+            <div class="card form-card">
+              <div class="form-title-bar">
+                <h2 id="form-heading">New Clearance Application</h2>
+                <p class="text-muted text-sm">Please verify every field carefully against your legal identity records.</p>
+              </div>
+
+              <form id="form-clearance-app" novalidate>
+                <input type="hidden" id="app-record-id" value="" />
+
+                <!-- Section 1: Personal Identification -->
+                <fieldset class="form-section">
+                  <legend>1. Personal Identification</legend>
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="app-photo">Applicant Passport Photo (Max 200 KB) *</label>
+                      <input type="file" id="app-photo" class="form-control" accept=".jpg,.jpeg,.png" />
+                      <small class="form-hint">Accepted formats: JPG, JPEG, PNG. Max 200 KB.</small>
+                    </div>
+                    <div class="form-group">
+                      <label for="app-fullname">Applicant Full Legal Name *</label>
+                      <input type="text" id="app-fullname" class="form-control" required />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-3">
+                    <div class="form-group">
+                      <label for="app-gender">Gender *</label>
+                      <select id="app-gender" class="form-control" required>
+                        <option value="">Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="app-dob">Date of Birth *</label>
+                      <input type="date" id="app-dob" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-nationality">Nationality *</label>
+                      <input type="text" id="app-nationality" class="form-control" value="India" required />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-3">
+                    <div class="form-group">
+                      <label for="app-father-name">Father's Name *</label>
+                      <input type="text" id="app-father-name" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-mother-name">Mother's Name *</label>
+                      <input type="text" id="app-mother-name" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-spouse-name">Spouse's Name (Optional)</label>
+                      <input type="text" id="app-spouse-name" class="form-control" />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="app-aadhaar">Aadhaar Number (12 Digits) *</label>
+                      <input type="text" id="app-aadhaar" class="form-control" pattern="[0-9]{12}" maxlength="12" placeholder="12-digit numeric Aadhaar" required />
+                      <small class="form-hint">Stored strictly client-side. Never displayed on public validation screens.</small>
+                    </div>
+                    <div class="form-group">
+                      <label for="app-passport">Passport Number (Optional)</label>
+                      <input type="text" id="app-passport" class="form-control" />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="app-email">Email Address *</label>
+                      <input type="email" id="app-email" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-mobile">Mobile Number (10 Digits) *</label>
+                      <input type="tel" id="app-mobile" class="form-control" pattern="[6-9][0-9]{9}" required />
+                    </div>
+                  </div>
+                </fieldset>
+
+                <!-- Section 2: Residence & Address Details -->
+                <fieldset class="form-section">
+                  <legend>2. Residence &amp; Address Details</legend>
+                  <div class="form-group">
+                    <label for="app-perm-address">Permanent Residential Address *</label>
+                    <textarea id="app-perm-address" class="form-control" rows="2" required></textarea>
+                  </div>
+
+                  <div class="grid grid-3">
+                    <div class="form-group">
+                      <label for="app-perm-city">City / Town / Village *</label>
+                      <input type="text" id="app-perm-city" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-perm-state">State *</label>
+                      <input type="text" id="app-perm-state" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="app-perm-pin">PIN Code (6 Digits) *</label>
+                      <input type="text" id="app-perm-pin" class="form-control" pattern="[0-9]{6}" maxlength="6" required />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="app-residence-duration">Duration of Residence at Permanent Address *</label>
+                    <input type="text" id="app-residence-duration" class="form-control" placeholder="e.g. 5 Years 6 Months" required />
+                  </div>
+
+                  <div class="form-group checkbox-wrapper">
+                    <input type="checkbox" id="app-same-address" />
+                    <label for="app-same-address">Present address is identical to permanent address</label>
+                  </div>
+
+                  <div id="present-address-box" class="form-group">
+                    <label for="app-present-address">Present Residential Address *</label>
+                    <textarea id="app-present-address" class="form-control" rows="2"></textarea>
+                  </div>
+
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="app-proof-type">Address Proof Document Type *</label>
+                      <select id="app-proof-type" class="form-control" required>
+                        <option value="">Select Document Type</option>
+                        <option value="Aadhaar">Aadhaar Card</option>
+                        <option value="Voter ID">Voter ID Card</option>
+                        <option value="Ration Card">Ration Card</option>
+                        <option value="Electricity Bill">Electricity Bill</option>
+                        <option value="Rent Agreement">Rent Agreement</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="app-proof-file">Address Proof File (Max 250 KB) *</label>
+                      <input type="file" id="app-proof-file" class="form-control" accept=".jpg,.jpeg,.png,.pdf" />
+                      <small class="form-hint">Accepted formats: JPG, PNG, PDF. Max 250 KB.</small>
+                    </div>
+                  </div>
+                </fieldset>
+
+                <!-- Section 3: Purpose & Supporting Documents -->
+                <fieldset class="form-section">
+                  <legend>3. Verification Purpose &amp; Documentation</legend>
+                  <div class="grid grid-2">
+                    <div class="form-group">
+                      <label for="app-purpose">Purpose of Clearance *</label>
+                      <select id="app-purpose" class="form-control" required>
+                        <option value="">Select Purpose</option>
+                        <option value="Visa/Immigration">Visa / Immigration Assistance</option>
+                        <option value="Employment">Private Employment Background</option>
+                        <option value="Education">Educational Institution Admission</option>
+                        <option value="Rental">Tenancy &amp; Rental Verification</option>
+                        <option value="Other">Other Specific Purpose</option>
+                      </select>
+                    </div>
+                    <div id="other-purpose-box" class="form-group hidden">
+                      <label for="app-other-purpose">Specify Other Purpose *</label>
+                      <input type="text" id="app-other-purpose" class="form-control" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="app-support-file">Supporting Document (PDF Only, Max 2 MB)</label>
+                    <input type="file" id="app-support-file" class="form-control" accept=".pdf" />
+                    <small class="form-hint">Optional: Appointment letter, tenancy memorandum, or admission memo.</small>
+                  </div>
+                </fieldset>
+
+                <!-- Section 4: Two Local References -->
+                <fieldset class="form-section">
+                  <legend>4. Two Local References</legend>
+                  <div class="grid grid-2">
+                    <div class="ref-subcard">
+                      <h5>Reference 1 *</h5>
+                      <div class="form-group">
+                        <label for="ref1-name">Full Name *</label>
+                        <input type="text" id="ref1-name" class="form-control" required />
+                      </div>
+                      <div class="form-group">
+                        <label for="ref1-phone">Mobile (10 Digits) *</label>
+                        <input type="tel" id="ref1-phone" class="form-control" pattern="[6-9][0-9]{9}" required />
+                      </div>
+                      <div class="form-group">
+                        <label for="ref1-address">Complete Address *</label>
+                        <input type="text" id="ref1-address" class="form-control" required />
+                      </div>
+                    </div>
+
+                    <div class="ref-subcard">
+                      <h5>Reference 2 *</h5>
+                      <div class="form-group">
+                        <label for="ref2-name">Full Name *</label>
+                        <input type="text" id="ref2-name" class="form-control" required />
+                      </div>
+                      <div class="form-group">
+                        <label for="ref2-phone">Mobile (10 Digits) *</label>
+                        <input type="tel" id="ref2-phone" class="form-control" pattern="[6-9][0-9]{9}" required />
+                      </div>
+                      <div class="form-group">
+                        <label for="ref2-address">Complete Address *</label>
+                        <input type="text" id="ref2-address" class="form-control" required />
+                      </div>
+                    </div>
+                  </div>
+                </fieldset>
+
+                <!-- Declaration -->
+                <div class="form-group checkbox-wrapper">
+                  <input type="checkbox" id="app-declaration" required />
+                  <label for="app-declaration">
+                    I solemnly declare that all statements, personal particulars, and uploaded evidence are authentic and accurate. I understand that false statements will result in immediate rejection without refund.
+                  </label>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" id="btn-save-draft" class="btn btn-outline">Save Draft</button>
+                  <button type="button" id="btn-preview-app" class="btn btn-gold">Review &amp; Preview</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- TAB: APPLICANT PAYMENT -->
+          <div id="tab-payment" class="dash-tab hidden">
+            <div class="card payment-card">
+              <h2>Processing Fee Remittance (₹100)</h2>
+              <p class="text-muted">
+                Scan the official UPI QR code below using any authorized payment application (GPay, PhonePe, Paytm, BHIM) to transfer the fixed <strong>₹100</strong> processing charge.
+              </p>
+
+              <div class="payment-grid">
+                <div class="qr-col">
+                  <div id="payment-qr-canvas" class="qr-box"></div>
+                  <div class="payee-box">
+                    <p>Payee: <strong id="payee-name-display">Mr Jahir Narjinary</strong></p>
+                    <p>UPI ID: <code id="payee-upi-display">7384512297@upi</code></p>
+                    <p>Amount: <strong>₹100.00</strong></p>
+                  </div>
+                </div>
+
+                <div class="payment-form-col">
+                  <form id="form-payment-submission" novalidate>
+                    <input type="hidden" id="pay-app-id" value="" />
+                    <div class="form-group">
+                      <label for="pay-utr">Transaction Reference / UTR Number (12 Digits) *</label>
+                      <input type="text" id="pay-utr" class="form-control" placeholder="e.g. 423456789012" required />
+                      <small class="form-hint">Located in your payment app confirmation receipt.</small>
+                    </div>
+                    <div class="form-group">
+                      <label for="pay-screenshot">Upload Payment Screenshot (Max 2 MB, Optional)</label>
+                      <input type="file" id="pay-screenshot" class="form-control" accept=".jpg,.jpeg,.png" />
+                      <small class="form-hint">Accepted formats: JPG, PNG. Max 2 MB.</small>
+                    </div>
+                    <button type="submit" id="btn-confirm-payment" class="btn btn-gold btn-block">Confirm Payment Submission</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- VIEW 6: ADMIN DASHBOARD -->
+    <section id="view-admin" class="view-panel hidden">
+      <div class="container container-wide">
+        <div class="admin-topbar">
+          <div>
+            <h2>Staff Operations Control Panel</h2>
+            <p class="text-muted">Review submissions, audit payments, inspect credentials, and manage certificates.</p>
+          </div>
+          <div class="admin-quick-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-admin-refresh">🔄 Refresh</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-admin-upi-config">⚙️ UPI Settings</button>
+          </div>
+        </div>
+
+        <!-- 6 Admin Metric Cards -->
+        <div class="grid grid-6 stat-deck">
+          <div class="card stat-card active" data-admin-filter="ALL">
+            <span class="stat-num" id="admin-count-all">0</span>
+            <span class="stat-label">All Applications</span>
+          </div>
+          <div class="card stat-card" data-admin-filter="Payment Verification Pending">
+            <span class="stat-num text-warning" id="admin-count-payverify">0</span>
+            <span class="stat-label">Verify Payment</span>
+          </div>
+          <div class="card stat-card" data-admin-filter="Pending for Approval">
+            <span class="stat-num text-info" id="admin-count-approval">0</span>
+            <span class="stat-label">Approval Pending</span>
+          </div>
+          <div class="card stat-card" data-admin-filter="Under Review">
+            <span class="stat-num" id="admin-count-review">0</span>
+            <span class="stat-label">Under Review</span>
+          </div>
+          <div class="card stat-card" data-admin-filter="Certificate Issued">
+            <span class="stat-num text-success" id="admin-count-issued">0</span>
+            <span class="stat-label">Issued</span>
+          </div>
+          <div class="card stat-card" data-admin-filter="Rejected">
+            <span class="stat-num text-danger" id="admin-count-rejected">0</span>
+            <span class="stat-label">Rejected</span>
+          </div>
+        </div>
+
+        <!-- Filters & Search -->
+        <div class="filter-bar">
+          <input type="text" id="admin-search-input" class="form-control" placeholder="Search by name, email, or application ID..." />
+          <select id="admin-status-filter" class="form-control">
+            <option value="ALL">All Application Statuses</option>
+            <option value="Draft">Draft</option>
+            <option value="Payment Pending">Payment Pending</option>
+            <option value="Payment Verification Pending">Payment Verification Pending</option>
+            <option value="Pending for Approval">Pending for Approval</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Additional Information Required">Additional Information Required</option>
+            <option value="Approved">Approved</option>
+            <option value="Certificate Issued">Certificate Issued</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Expired">Expired</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div id="admin-table-container" class="table-responsive">
+            <p class="empty-state">Loading registry submissions...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 7: CERTIFICATE VERIFICATION -->
+    <section id="view-verify" class="view-panel hidden">
+      <div class="container container-sm">
+        <div class="card verify-card">
+          <div class="card-icon text-center">🔍</div>
+          <h2 class="text-center">Public Certificate Verification</h2>
+          <p class="text-muted text-sm text-center form-sub">
+            Validate the authenticity, issue date, and standing of an issued JCC clearance credential.
+          </p>
+          <form id="form-verify-certificate" novalidate>
+            <div class="form-group">
+              <label for="verify-cert-id">Certificate Serial Number *</label>
+              <input type="text" id="verify-cert-id" class="form-control" placeholder="e.g. JCC-2026-XXXXXX" required />
+            </div>
+            <button type="submit" id="btn-submit-verify" class="btn btn-primary btn-block">Verify Certificate</button>
+          </form>
+
+          <div id="verify-result-box" class="verify-result-box hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 8: CONTACT US -->
+    <section id="view-contact" class="view-panel hidden">
+      <div class="container container-md">
+        <div class="grid grid-2 contact-layout">
+          <div class="contact-details">
+            <h2>Registry Office</h2>
+            <p class="text-muted">
+              For administrative inquiries, reference validations, or verification assistance, contact our primary help desk.
+            </p>
+            <div class="contact-card-box">
+              <div class="info-unit">
+                <strong>Executive / Registry Owner:</strong>
+                <p>Mr Jahir Narjinary</p>
+              </div>
+              <div class="info-unit">
+                <strong>Telephone Desk:</strong>
+                <p><a href="tel:7384512297">+91 7384512297</a></p>
+              </div>
+              <div class="info-unit">
+                <strong>Electronic Mail:</strong>
+                <p><a href="mailto:jahirkumarnarjinary@gmail.com">jahirkumarnarjinary@gmail.com</a></p>
+              </div>
+              <div class="info-unit">
+                <strong>Postal Office Address:</strong>
+                <p>Alipurduar, Kumargram, West Bengal, 736203, India</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Send an Official Message</h3>
+            <form id="form-contact" novalidate>
+              <div class="form-group">
+                <label for="contact-name">Your Full Name *</label>
+                <input type="text" id="contact-name" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label for="contact-email">Email Address *</label>
+                <input type="email" id="contact-email" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label for="contact-subject">Subject *</label>
+                <input type="text" id="contact-subject" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label for="contact-message">Message *</label>
+                <textarea id="contact-message" class="form-control" rows="4" required></textarea>
+              </div>
+              <button type="submit" id="btn-submit-contact" class="btn btn-primary btn-block">Send Message</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL 1: FORM PREVIEW -->
+  <div id="modal-preview" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-preview-title">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-preview-title">Application Form Preview</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-preview-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-preview-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btn-preview-back">Back to Edit</button>
+        <button type="button" class="btn btn-gold" id="btn-preview-confirm">Confirm &amp; Final Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: ADMIN APPLICATION REVIEW & AUDIT -->
+  <div id="modal-admin-review" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-review-title">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-review-title">Application Inspection</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-review-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-review-body"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ADMIN UPI CONFIGURATION -->
+  <div id="modal-admin-upi" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-upi-title">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <h3 id="modal-upi-title">Update UPI Payment Settings</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-upi-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-upi-settings" novalidate>
+          <div class="form-group">
+            <label for="cfg-upi-id">Payee UPI VPA Address *</label>
+            <input type="text" id="cfg-upi-id" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label for="cfg-payee-name">Payee Display Name *</label>
+            <input type="text" id="cfg-payee-name" class="form-control" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Save Configuration</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Footer -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <strong class="brand-title">JCC — Jahir Clearance Certificate</strong>
+        <p class="text-muted text-sm">
+          A standardized private application assistance service owned and operated by Mr. Jahir Narjinary.
+        </p>
+        <p class="text-muted text-sm">
+          Kumargram, Alipurduar, West Bengal 736203 | Phone: +91 7384512297
+        </p>
+      </div>
+      <div class="footer-links">
+        <a href="#home" data-view="home">Home</a>
+        <a href="#verify" data-view="verify">Verify Certificate</a>
+        <a href="#contact" data-view="contact">Contact Office</a>
+        <a href="#login" data-view="login">Applicant Sign In</a>
+        <a href="#admin-login" data-view="admin-login">Staff Access</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 JCC — Jahir Clearance Certificate. All Rights Reserved.</p>
+      <p class="text-xs text-muted">Statutory Notice: JCC does not issue government or police clearance documents.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
