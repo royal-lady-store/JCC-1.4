@@ -1,53 +1,46 @@
 /**
  * JCC — Jahir Clearance Certificate
- * Robust Single-Bundle Application Orchestrator & Live State Engine
+ * Official Firebase Backend Engine (Firestore + Auth + Cloud Storage)
  */
 
 (function () {
   'use strict';
 
-  // Explicit Supabase Configuration Constants
-  const SUPABASE_URL = "https://qvpnmudxxwpochskjxkr.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_i4LlGZGARNTYiPPZH77RSg_TqJp9tEG";
+  // Your verified Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBWAjCpj_FMBHeC6UhkxiNZ6eWfpDZ1GxA",
+    authDomain: "jc-clearence.firebaseapp.com",
+    projectId: "jc-clearence",
+    storageBucket: "jc-clearence.firebasestorage.app",
+    messagingSenderId: "793099295258",
+    appId: "1:793099295258:web:a5a2c3a0ca9f91d01b4fa3",
+    measurementId: "G-W2TL0M2YGC"
+  };
 
-  // Core Business Metadata & Static Configuration Constants
+  // Core Business Metadata
   const JCC_CONFIG = {
-    supabaseUrl: SUPABASE_URL,
-    supabaseAnonKey: SUPABASE_PUBLISHABLE_KEY,
     ownerName: 'Mr. Jahir Narjinary',
     contactPhone: '7384512297',
     contactEmail: 'jahirkumarnarjinary@gmail.com',
-    adminTargetEmail: 'jahirnarjinary04@gmail.com',
+    adminEmail: 'jahirnarjinary04@gmail.com',
     officeAddress: 'Alipurduar, Kumargram, West Bengal, 736203, India',
     applicationFeeInr: 100,
     defaultUpiId: '7384512297@upi',
     disclaimerText: 'JCC is a privately operated application assistance service. It is not an official government department, police department, or statutory clearance authority. Any certificate issued must not be represented as an official Police Clearance Certificate.'
   };
 
+  // Initialize Firebase Services
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
   // State Management Variables
-  let supabaseClient = null;
   let activeSessionUser = null;
   let isUserAdmin = false;
   let pendingSubmissionPayload = null;
   let cachedApplicantApps = [];
   let cachedAdminApps = [];
-
-  // Initialize Supabase Client with fail-safe validation
-  function initSupabase() {
-    const targetUrl = JCC_CONFIG.supabaseUrl || localStorage.getItem('jcc_supabase_url');
-    const targetKey = JCC_CONFIG.supabaseAnonKey || localStorage.getItem('jcc_supabase_key');
-
-    if (targetUrl && targetKey && window.supabase && typeof window.supabase.createClient === 'function') {
-      supabaseClient = window.supabase.createClient(targetUrl, targetKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true
-        }
-      });
-      return true;
-    }
-    return false;
-  }
 
   // Toast UI notification stack
   function showToast(message, type = 'info') {
@@ -105,60 +98,28 @@
     }
   }
 
-  // Restore authenticated session and determine role server-side
-  async function syncSession() {
-    if (!supabaseClient) return;
+  // Auth State Listener
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      activeSessionUser = user;
+      isUserAdmin = (user.email && user.email.toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase());
 
-    try {
-      const { data: { session }, error } = await supabaseClient.auth.getSession();
-      if (error) throw error;
+      const avatarEl = document.getElementById('dash-avatar');
+      const nameEl = document.getElementById('dash-user-name');
+      const emailEl = document.getElementById('dash-user-email');
 
-      if (session && session.user) {
-        activeSessionUser = session.user;
+      const displayName = user.displayName || user.email;
+      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+      if (nameEl) nameEl.textContent = displayName;
+      if (emailEl) emailEl.textContent = user.email;
 
-        // Query profiles table to determine admin status
-        const { data: profile, error: profileErr } = await supabaseClient
-          .from('profiles')
-          .select('full_name, is_admin')
-          .eq('id', activeSessionUser.id)
-          .single();
-
-        if (profileErr) {
-          console.warn("Profile table record not found or inaccessible:", profileErr.message);
-        }
-
-        isUserAdmin = Boolean(profile && profile.is_admin);
-
-        const avatarEl = document.getElementById('dash-avatar');
-        const nameEl = document.getElementById('dash-user-name');
-        const emailEl = document.getElementById('dash-user-email');
-
-        const displayName = (profile && profile.full_name) || activeSessionUser.email;
-        if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
-        if (nameEl) nameEl.textContent = displayName;
-        if (emailEl) emailEl.textContent = activeSessionUser.email;
-
-        updateNavAuthUI();
-      } else {
-        activeSessionUser = null;
-        isUserAdmin = false;
-        updateNavAuthUI();
-      }
-    } catch (err) {
-      console.warn("Session synchronization notice:", err.message);
+      updateNavAuthUI();
+    } else {
+      activeSessionUser = null;
+      isUserAdmin = false;
+      updateNavAuthUI();
     }
-  }
-
-  // Calculate 6 Calendar Months with Snap to End of Month
-  function calculateSixMonthExpiry(dateStr) {
-    const d = new Date(dateStr);
-    const startDay = d.getDate();
-    d.setMonth(d.getMonth() + 6);
-    if (d.getDate() !== startDay) {
-      d.setDate(0); // Snap to last day of target month
-    }
-    return d.toISOString().split('T')[0];
-  }
+  });
 
   /* =============================================================================
      AUTHENTICATION HANDLERS
@@ -166,12 +127,7 @@
 
   async function handleApplicantRegister(e) {
     e.preventDefault();
-    if (!supabaseClient) {
-      showToast('Database connection unavailable.', 'error');
-      return;
-    }
 
-    const userId = document.getElementById('reg-userid').value.trim().toLowerCase();
     const fullName = document.getElementById('reg-fullname').value.trim();
     const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const phone = document.getElementById('reg-phone').value.trim();
@@ -179,20 +135,16 @@
     const confirmPassword = document.getElementById('reg-confirm-password').value;
     const declaration = document.getElementById('reg-declaration').checked;
 
-    if (!userId || !fullName || !email || !phone || !password) {
+    if (!fullName || !email || !phone || !password) {
       showToast('Please fill out all required fields.', 'warning');
-      return;
-    }
-    if (!/^[a-zA-Z0-9_]{4,20}$/.test(userId)) {
-      showToast('User ID must be 4–20 alphanumeric characters or underscores.', 'warning');
       return;
     }
     if (!declaration) {
       showToast('You must acknowledge the statutory disclaimer.', 'warning');
       return;
     }
-    if (password.length < 8) {
-      showToast('Password must be at least 8 characters.', 'warning');
+    if (password.length < 6) {
+      showToast('Password must be at least 6 characters in Firebase.', 'warning');
       return;
     }
     if (password !== confirmPassword) {
@@ -205,23 +157,22 @@
     submitBtn.textContent = 'Registering Account...';
 
     try {
-      const { data, error } = await supabaseClient.auth.signUp({
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await cred.user.updateProfile({ displayName: fullName });
+
+      // Save user record to Firestore 'profiles' collection
+      await db.collection('profiles').doc(cred.user.uid).set({
+        full_name: fullName,
         email: email,
-        password: password,
-        options: {
-          data: {
-            user_id_alias: userId,
-            full_name: fullName,
-            phone: phone
-          }
-        }
+        phone: phone,
+        is_admin: (email === JCC_CONFIG.adminEmail),
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      if (error) throw error;
-
-      showToast('Account registered! You may now sign in from any device.', 'success');
+      showToast('Account registered successfully! Welcome to JCC.', 'success');
       document.getElementById('form-register').reset();
-      switchView('login');
+      switchView('dashboard');
+      loadApplicantApplications();
     } catch (err) {
       showToast(err.message || 'Registration failed.', 'error');
     } finally {
@@ -232,16 +183,12 @@
 
   async function handleApplicantLogin(e) {
     e.preventDefault();
-    if (!supabaseClient) {
-      showToast('Database connection unavailable.', 'error');
-      return;
-    }
 
-    const identifier = document.getElementById('login-email').value.trim().toLowerCase();
+    const email = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
 
-    if (!identifier || !password) {
-      showToast('Enter your User ID/email and password.', 'warning');
+    if (!email || !password) {
+      showToast('Enter your email and password.', 'warning');
       return;
     }
 
@@ -250,28 +197,7 @@
     submitBtn.textContent = 'Signing In...';
 
     try {
-      let loginEmail = identifier;
-      // If user provided a username rather than an email, look it up in public.profiles
-      if (!identifier.includes('@')) {
-        const { data: profileMatch } = await supabaseClient
-          .from('profiles')
-          .select('email')
-          .eq('username', identifier)
-          .single();
-
-        if (profileMatch && profileMatch.email) {
-          loginEmail = profileMatch.email;
-        }
-      }
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: loginEmail,
-        password: password
-      });
-
-      if (error) throw error;
-
-      await syncSession();
+      await auth.signInWithEmailAndPassword(email, password);
       showToast('Signed in successfully.', 'success');
       switchView('dashboard');
       loadApplicantApplications();
@@ -285,10 +211,6 @@
 
   async function handleAdminLogin(e) {
     e.preventDefault();
-    if (!supabaseClient) {
-      showToast('Database connection unavailable.', 'error');
-      return;
-    }
 
     const email = document.getElementById('admin-email').value.trim().toLowerCase();
     const password = document.getElementById('admin-password').value;
@@ -303,26 +225,31 @@
     submitBtn.textContent = 'Authenticating Staff...';
 
     try {
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
-
-      if (error) throw error;
-
-      // Verify that the user has is_admin = true on public.profiles
-      const { data: profile, error: profErr } = await supabaseClient
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profErr || !profile || !profile.is_admin) {
-        await supabaseClient.auth.signOut();
-        throw new Error('Access denied: User lacks authorized administrator role.');
+      let userCred;
+      try {
+        userCred = await auth.signInWithEmailAndPassword(email, password);
+      } catch (authErr) {
+        // If admin account doesn't exist yet in Firebase, auto-create it with provided credentials
+        if (email === JCC_CONFIG.adminEmail.toLowerCase() && authErr.code === 'auth/user-not-found') {
+          userCred = await auth.createUserWithEmailAndPassword(email, password);
+          await userCred.user.updateProfile({ displayName: 'Administrator' });
+          await db.collection('profiles').doc(userCred.user.uid).set({
+            full_name: 'Administrator',
+            email: email,
+            is_admin: true,
+            created_at: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          throw authErr;
+        }
       }
 
-      await syncSession();
+      if (email !== JCC_CONFIG.adminEmail.toLowerCase()) {
+        await auth.signOut();
+        throw new Error('Access denied: Unauthorized staff account.');
+      }
+
+      isUserAdmin = true;
       showToast('Staff clearance authenticated.', 'success');
       switchView('admin');
       loadAdminApplications();
@@ -336,9 +263,7 @@
   }
 
   async function handleLogout() {
-    if (supabaseClient) {
-      await supabaseClient.auth.signOut();
-    }
+    await auth.signOut();
     activeSessionUser = null;
     isUserAdmin = false;
     updateNavAuthUI();
@@ -347,7 +272,7 @@
   }
 
   /* =============================================================================
-     DOCUMENT SUBMISSIONS WITH FORM PREVIEW & ERROR ROLLBACK
+     DOCUMENT SUBMISSIONS WITH FORM PREVIEW
      ============================================================================= */
 
   function switchDashTab(tabId) {
@@ -425,7 +350,6 @@
       supportFile: supportInput.files[0] || null
     };
 
-    // Render Full Form Preview with Sensitive Identifiers Redacted
     const previewBody = document.getElementById('modal-preview-body');
     previewBody.innerHTML = `
       <div style="line-height: 1.8;">
@@ -441,74 +365,57 @@
         <p><strong>Permanent Address:</strong> ${escapeHtml(pendingSubmissionPayload.permAddress)}, ${escapeHtml(pendingSubmissionPayload.permCity)}, ${escapeHtml(pendingSubmissionPayload.permState)} - ${escapeHtml(pendingSubmissionPayload.permPin)}</p>
         <p><strong>Residence Duration:</strong> ${escapeHtml(pendingSubmissionPayload.residenceDuration)}</p>
         <p><strong>Present Address:</strong> ${escapeHtml(pendingSubmissionPayload.presentAddress)}</p>
-        <p><strong>Proof of Address Document Type:</strong> ${escapeHtml(pendingSubmissionPayload.proofType)}</p>
+        <p><strong>Proof Document Type:</strong> ${escapeHtml(pendingSubmissionPayload.proofType)}</p>
 
         <hr style="margin: 1rem 0;">
         <h4>3. Clearance Purpose & Two References</h4>
         <p><strong>Purpose:</strong> ${escapeHtml(pendingSubmissionPayload.purpose)} ${pendingSubmissionPayload.otherPurpose ? `(${escapeHtml(pendingSubmissionPayload.otherPurpose)})` : ''}</p>
         <p><strong>Reference 1:</strong> ${escapeHtml(pendingSubmissionPayload.ref1Name)} (${escapeHtml(pendingSubmissionPayload.ref1Phone)}) - ${escapeHtml(pendingSubmissionPayload.ref1Address)}</p>
         <p><strong>Reference 2:</strong> ${escapeHtml(pendingSubmissionPayload.ref2Name)} (${escapeHtml(pendingSubmissionPayload.ref2Phone)}) - ${escapeHtml(pendingSubmissionPayload.ref2Address)}</p>
-
-        <hr style="margin: 1rem 0;">
-        <h4>4. Document Upload Readiness</h4>
-        <p><strong>Photograph:</strong> ${pendingSubmissionPayload.photoFile ? `Ready (${pendingSubmissionPayload.photoFile.name})` : 'Existing/None'}</p>
-        <p><strong>Address Proof:</strong> ${pendingSubmissionPayload.proofFile ? `Ready (${pendingSubmissionPayload.proofFile.name})` : 'Existing/None'}</p>
-        <p><strong>Supporting Document:</strong> ${pendingSubmissionPayload.supportFile ? `Ready (${pendingSubmissionPayload.supportFile.name})` : 'None'}</p>
       </div>
     `;
 
     document.getElementById('modal-preview').classList.remove('hidden');
   }
 
-  // Execute Submission with Automatic Rollback Protection
+  // Upload Files to Firebase Storage & Store in Firestore
   async function executeFinalSubmission() {
-    if (!activeSessionUser || !pendingSubmissionPayload || !supabaseClient) return;
+    if (!activeSessionUser || !pendingSubmissionPayload) return;
 
     const confirmBtn = document.getElementById('btn-preview-confirm');
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Uploading Documents...';
 
-    const uploadedPaths = [];
-
     try {
-      let photoPath = null;
-      let proofPath = null;
-      let supportPath = null;
+      let photoUrl = '';
+      let proofUrl = '';
+      let supportUrl = '';
 
-      // 1. Upload photo to private storage bucket 'applicant-photos'
+      // Upload Photo
       if (pendingSubmissionPayload.photoFile) {
-        const ext = pendingSubmissionPayload.photoFile.name.split('.').pop();
-        const pPath = `${activeSessionUser.id}/${Date.now()}_photo.${ext}`;
-        const { error: upErr } = await supabaseClient.storage.from('applicant-photos').upload(pPath, pendingSubmissionPayload.photoFile);
-        if (upErr) throw new Error('Photograph upload failed: ' + upErr.message);
-        photoPath = pPath;
-        uploadedPaths.push({ bucket: 'applicant-photos', path: pPath });
+        const pRef = storage.ref(`photos/${activeSessionUser.uid}_${Date.now()}`);
+        const pSnap = await pRef.put(pendingSubmissionPayload.photoFile);
+        photoUrl = await pSnap.ref.getDownloadURL();
       }
 
-      // 2. Upload address proof to private storage bucket 'address-proofs'
+      // Upload Address Proof
       if (pendingSubmissionPayload.proofFile) {
-        const ext = pendingSubmissionPayload.proofFile.name.split('.').pop();
-        const aPath = `${activeSessionUser.id}/${Date.now()}_proof.${ext}`;
-        const { error: upErr } = await supabaseClient.storage.from('address-proofs').upload(aPath, pendingSubmissionPayload.proofFile);
-        if (upErr) throw new Error('Address proof upload failed: ' + upErr.message);
-        proofPath = aPath;
-        uploadedPaths.push({ bucket: 'address-proofs', path: aPath });
+        const aRef = storage.ref(`proofs/${activeSessionUser.uid}_${Date.now()}`);
+        const aSnap = await aRef.put(pendingSubmissionPayload.proofFile);
+        proofUrl = await aSnap.ref.getDownloadURL();
       }
 
-      // 3. Upload optional support file
+      // Upload Support File
       if (pendingSubmissionPayload.supportFile) {
-        const sPath = `${activeSessionUser.id}/${Date.now()}_support.pdf`;
-        const { error: upErr } = await supabaseClient.storage.from('address-proofs').upload(sPath, pendingSubmissionPayload.supportFile);
-        if (upErr) throw new Error('Supporting document upload failed: ' + upErr.message);
-        supportPath = sPath;
-        uploadedPaths.push({ bucket: 'address-proofs', path: sPath });
+        const sRef = storage.ref(`support/${activeSessionUser.uid}_${Date.now()}`);
+        const sSnap = await sRef.put(pendingSubmissionPayload.supportFile);
+        supportUrl = await sSnap.ref.getDownloadURL();
       }
 
-      confirmBtn.textContent = 'Saving Application Record...';
+      confirmBtn.textContent = 'Saving Application...';
 
-      // 4. Save Database Record
-      const dbPayload = {
-        user_id: activeSessionUser.id,
+      const appData = {
+        user_id: activeSessionUser.uid,
         status: 'Payment Pending',
         full_name: pendingSubmissionPayload.fullName,
         gender: pendingSubmissionPayload.gender,
@@ -536,67 +443,47 @@
         ref2_name: pendingSubmissionPayload.ref2Name,
         ref2_phone: pendingSubmissionPayload.ref2Phone,
         ref2_address: pendingSubmissionPayload.ref2Address,
-        updated_at: new Date().toISOString()
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
       };
 
-      if (photoPath) dbPayload.photo_url = photoPath;
-      if (proofPath) dbPayload.address_proof_url = proofPath;
-      if (supportPath) dbPayload.supporting_doc_url = supportPath;
+      if (photoUrl) appData.photo_url = photoUrl;
+      if (proofUrl) appData.address_proof_url = proofUrl;
+      if (supportUrl) appData.supporting_doc_url = supportUrl;
 
       let savedId = pendingSubmissionPayload.recordId;
 
       if (savedId) {
-        const { error: updateErr } = await supabaseClient
-          .from('applications')
-          .update(dbPayload)
-          .eq('id', savedId);
-        if (updateErr) throw updateErr;
+        await db.collection('applications').doc(savedId).update(appData);
       } else {
-        const { data: newRow, error: insertErr } = await supabaseClient
-          .from('applications')
-          .insert(dbPayload)
-          .select('id')
-          .single();
-        if (insertErr) throw insertErr;
-        savedId = newRow.id;
+        appData.created_at = firebase.firestore.FieldValue.serverTimestamp();
+        const docRef = await db.collection('applications').add(appData);
+        savedId = docRef.id;
       }
-
-      // Record Status Audit
-      await supabaseClient.from('status_audit_log').insert({
-        application_id: savedId,
-        changed_by: activeSessionUser.id,
-        new_status: 'Payment Pending',
-        note: 'Application successfully verified and submitted by applicant.'
-      });
 
       document.getElementById('modal-preview').classList.add('hidden');
       document.getElementById('form-clearance-app').reset();
-      showToast('Application submitted successfully! Please proceed to payment.', 'success');
+      showToast('Application submitted! Please proceed to payment.', 'success');
       openPaymentInterface(savedId);
 
     } catch (err) {
-      // Safe cleanup rollback for uploaded files if DB save fails
-      for (const item of uploadedPaths) {
-        await supabaseClient.storage.from(item.bucket).remove([item.path]);
-      }
-      showToast('Submission error: ' + err.message, 'error');
+      showToast('Submission failed: ' + err.message, 'error');
     } finally {
       confirmBtn.disabled = false;
       confirmBtn.textContent = 'Confirm & Final Submit';
     }
   }
 
-  // Save Draft (Without Upload Requirement)
+  // Save Draft in Firestore
   async function handleSaveDraft() {
-    if (!activeSessionUser || !supabaseClient) {
+    if (!activeSessionUser) {
       showToast('Sign in required to save draft.', 'warning');
       return;
     }
 
     try {
       const recordId = document.getElementById('app-record-id').value;
-      const dbPayload = {
-        user_id: activeSessionUser.id,
+      const draftData = {
+        user_id: activeSessionUser.uid,
         status: 'Draft',
         full_name: document.getElementById('app-fullname').value.trim() || 'Untitled Draft',
         gender: document.getElementById('app-gender').value || 'Male',
@@ -619,13 +506,15 @@
         ref1_address: document.getElementById('ref1-address').value.trim() || 'N/A',
         ref2_name: document.getElementById('ref2-name').value.trim() || 'N/A',
         ref2_phone: document.getElementById('ref2-phone').value.trim() || '9999999999',
-        ref2_address: document.getElementById('ref2-address').value.trim() || 'N/A'
+        ref2_address: document.getElementById('ref2-address').value.trim() || 'N/A',
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
       };
 
       if (recordId) {
-        await supabaseClient.from('applications').update(dbPayload).eq('id', recordId);
+        await db.collection('applications').doc(recordId).update(draftData);
       } else {
-        await supabaseClient.from('applications').insert(dbPayload);
+        draftData.created_at = firebase.firestore.FieldValue.serverTimestamp();
+        await db.collection('applications').add(draftData);
       }
 
       showToast('Draft saved to online account.', 'info');
@@ -636,22 +525,22 @@
   }
 
   /* =============================================================================
-     APPLICANT DASHBOARD FETCH & ACTIONS
+     APPLICANT DASHBOARD FETCH
      ============================================================================= */
 
   async function loadApplicantApplications() {
-    if (!activeSessionUser || !supabaseClient) return;
+    if (!activeSessionUser) return;
     const container = document.getElementById('applicant-records-container');
 
     try {
-      const { data: apps, error } = await supabaseClient
-        .from('applications')
-        .select('*, certificates(*)')
-        .eq('user_id', activeSessionUser.id)
-        .order('created_at', { ascending: false });
+      const snap = await db.collection('applications')
+        .where('user_id', '==', activeSessionUser.uid)
+        .get();
 
-      if (error) throw error;
-      cachedApplicantApps = apps || [];
+      cachedApplicantApps = [];
+      snap.forEach(doc => {
+        cachedApplicantApps.push({ id: doc.id, ...doc.data() });
+      });
 
       // Update Metric Counters
       document.getElementById('count-app-all').textContent = cachedApplicantApps.length;
@@ -681,7 +570,6 @@
             <th>Application ID</th>
             <th>Purpose</th>
             <th>Status</th>
-            <th>Submitted On</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -694,7 +582,7 @@
         actionBtn = `<button type="button" class="btn btn-outline btn-sm btn-act-edit" data-id="${app.id}">Edit / Resubmit</button>`;
       } else if (app.status === 'Payment Pending') {
         actionBtn = `<button type="button" class="btn btn-gold btn-sm btn-act-pay" data-id="${app.id}">Pay ₹100</button>`;
-      } else if (app.status === 'Certificate Issued' && app.certificates && app.certificates.length > 0) {
+      } else if (app.status === 'Certificate Issued') {
         actionBtn = `<button type="button" class="btn btn-primary btn-sm btn-act-download" data-id="${app.id}">Download PDF</button>`;
       } else {
         actionBtn = `<span class="text-muted text-sm">Under Review</span>`;
@@ -705,7 +593,6 @@
           <td><code>${app.id.substring(0, 8)}...</code></td>
           <td>${escapeHtml(app.purpose)}</td>
           <td><span class="badge-status ${getStatusClass(app.status)}">${escapeHtml(app.status)}</span></td>
-          <td>${new Date(app.created_at).toLocaleDateString()}</td>
           <td>${actionBtn}</td>
         </tr>
       `;
@@ -723,9 +610,7 @@
     container.querySelectorAll('.btn-act-download').forEach(b => {
       b.addEventListener('click', () => {
         const app = cachedApplicantApps.find(a => a.id === b.getAttribute('data-id'));
-        if (app && app.certificates && app.certificates[0]) {
-          downloadCertificatePdf(app, app.certificates[0]);
-        }
+        if (app) downloadCertificatePdf(app);
       });
     });
   }
@@ -779,13 +664,14 @@
     let upiId = JCC_CONFIG.defaultUpiId;
     let payee = JCC_CONFIG.ownerName;
 
-    if (supabaseClient) {
-      const { data: cfg } = await supabaseClient.from('system_settings').select('*').eq('id', 1).single();
-      if (cfg) {
+    try {
+      const cfgSnap = await db.collection('system_settings').doc('general').get();
+      if (cfgSnap.exists) {
+        const cfg = cfgSnap.data();
         upiId = cfg.upi_id || upiId;
         payee = cfg.payee_name || payee;
       }
-    }
+    } catch (_) {}
 
     document.getElementById('payee-name-display').textContent = payee;
     document.getElementById('payee-upi-display').textContent = upiId;
@@ -803,7 +689,6 @@
 
   async function handlePaymentSubmission(e) {
     e.preventDefault();
-    if (!supabaseClient) return;
 
     const appId = document.getElementById('pay-app-id').value;
     const utr = document.getElementById('pay-utr').value.trim();
@@ -819,36 +704,22 @@
     submitBtn.textContent = 'Uploading Proof...';
 
     try {
-      let screenshotPath = null;
+      let screenshotUrl = '';
       if (screenshotInput.files.length > 0) {
         const file = screenshotInput.files[0];
-        if (file.size > 2 * 1024 * 1024) throw new Error('Payment screenshot cannot exceed 2 MB.');
-        const ext = file.name.split('.').pop();
-        const pPath = `${activeSessionUser.id}/${Date.now()}_payment.${ext}`;
-        const { error: upErr } = await supabaseClient.storage.from('payment-evidence').upload(pPath, file);
-        if (upErr) throw upErr;
-        screenshotPath = pPath;
+        const sRef = storage.ref(`payments/${activeSessionUser.uid}_${Date.now()}`);
+        const snap = await sRef.put(file);
+        screenshotUrl = await snap.ref.getDownloadURL();
       }
 
       const updatePayload = {
         payment_utr: utr,
         status: 'Payment Verification Pending',
-        updated_at: new Date().toISOString()
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
       };
-      if (screenshotPath) updatePayload.payment_screenshot_url = screenshotPath;
+      if (screenshotUrl) updatePayload.payment_screenshot_url = screenshotUrl;
 
-      const { error: dbErr } = await supabaseClient
-        .from('applications')
-        .update(updatePayload)
-        .eq('id', appId);
-      if (dbErr) throw dbErr;
-
-      await supabaseClient.from('status_audit_log').insert({
-        application_id: appId,
-        changed_by: activeSessionUser.id,
-        new_status: 'Payment Verification Pending',
-        note: `Payment UTR recorded: ${utr}`
-      });
+      await db.collection('applications').doc(appId).update(updatePayload);
 
       showToast('Payment submitted for administrator review.', 'success');
       document.getElementById('form-payment-submission').reset();
@@ -862,23 +733,20 @@
   }
 
   /* =============================================================================
-     ADMIN DASHBOARD & LIVE APPLICATION SUBSCRIPTION
+     ADMIN DASHBOARD & REALTIME SUBSCRIPTIONS
      ============================================================================= */
 
   async function loadAdminApplications() {
-    if (!isUserAdmin || !supabaseClient) return;
+    if (!isUserAdmin) return;
     const container = document.getElementById('admin-table-container');
 
     try {
-      const { data: apps, error } = await supabaseClient
-        .from('applications')
-        .select('*, certificates(*)')
-        .order('created_at', { ascending: false });
+      const snap = await db.collection('applications').get();
+      cachedAdminApps = [];
+      snap.forEach(doc => {
+        cachedAdminApps.push({ id: doc.id, ...doc.data() });
+      });
 
-      if (error) throw error;
-      cachedAdminApps = apps || [];
-
-      // Update counters
       document.getElementById('admin-count-all').textContent = cachedAdminApps.length;
       document.getElementById('admin-count-payverify').textContent = cachedAdminApps.filter(a => a.status === 'Payment Verification Pending').length;
       document.getElementById('admin-count-approval').textContent = cachedAdminApps.filter(a => a.status === 'Pending for Approval').length;
@@ -955,40 +823,18 @@
     });
   }
 
-  // Real-time PostgreSQL subscription
   function subscribeToLiveApplications() {
-    if (!supabaseClient) return;
-    supabaseClient
-      .channel('public:applications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
-        loadAdminApplications();
-      })
-      .subscribe();
+    db.collection('applications').onSnapshot(() => {
+      loadAdminApplications();
+    });
   }
 
-  async function openAdminReviewModal(appId) {
+  function openAdminReviewModal(appId) {
     const app = cachedAdminApps.find(a => a.id === appId);
     if (!app) return;
 
     const modal = document.getElementById('modal-admin-review');
     const body = document.getElementById('modal-review-body');
-
-    let photoSignedUrl = '';
-    let proofSignedUrl = '';
-    let paymentSignedUrl = '';
-
-    if (app.photo_url) {
-      const { data } = await supabaseClient.storage.from('applicant-photos').createSignedUrl(app.photo_url, 3600);
-      if (data && data.signedUrl) photoSignedUrl = data.signedUrl;
-    }
-    if (app.address_proof_url) {
-      const { data } = await supabaseClient.storage.from('address-proofs').createSignedUrl(app.address_proof_url, 3600);
-      if (data && data.signedUrl) proofSignedUrl = data.signedUrl;
-    }
-    if (app.payment_screenshot_url) {
-      const { data } = await supabaseClient.storage.from('payment-evidence').createSignedUrl(app.payment_screenshot_url, 3600);
-      if (data && data.signedUrl) paymentSignedUrl = data.signedUrl;
-    }
 
     body.innerHTML = `
       <div class="grid grid-2">
@@ -1007,11 +853,11 @@
         </div>
 
         <div>
-          <h4>Private Document Evidence</h4>
+          <h4>Document Evidence</h4>
           <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
-            ${photoSignedUrl ? `<a href="${photoSignedUrl}" target="_blank" class="btn btn-outline btn-sm">📷 View Applicant Photo</a>` : '<span class="text-muted">No photo uploaded</span>'}
-            ${proofSignedUrl ? `<a href="${proofSignedUrl}" target="_blank" class="btn btn-outline btn-sm">📄 View Address Proof (${escapeHtml(app.address_proof_type)})</a>` : '<span class="text-muted">No address proof uploaded</span>'}
-            ${paymentSignedUrl ? `<a href="${paymentSignedUrl}" target="_blank" class="btn btn-outline btn-sm">💳 View Payment Evidence</a>` : '<span class="text-muted">No payment screenshot</span>'}
+            ${app.photo_url ? `<a href="${app.photo_url}" target="_blank" class="btn btn-outline btn-sm">📷 View Applicant Photo</a>` : '<span class="text-muted">No photo uploaded</span>'}
+            ${app.address_proof_url ? `<a href="${app.address_proof_url}" target="_blank" class="btn btn-outline btn-sm">📄 View Address Proof (${escapeHtml(app.address_proof_type)})</a>` : '<span class="text-muted">No address proof uploaded</span>'}
+            ${app.payment_screenshot_url ? `<a href="${app.payment_screenshot_url}" target="_blank" class="btn btn-outline btn-sm">💳 View Payment Evidence</a>` : '<span class="text-muted">No payment screenshot</span>'}
           </div>
           <p style="margin-top:1rem;"><strong>UTR Number:</strong> <code>${escapeHtml(app.payment_utr || 'None')}</code></p>
         </div>
@@ -1022,18 +868,13 @@
       <div>
         <h4>Administrative Actions</h4>
         <div class="form-group">
-          <label for="adm-notes">Internal Administrator Notes (Private)</label>
+          <label for="adm-notes">Internal Administrator Notes</label>
           <textarea id="adm-notes" class="form-control" rows="2">${escapeHtml(app.admin_notes || '')}</textarea>
-        </div>
-        <div class="form-group">
-          <label for="adm-msg">Applicant-Visible Message</label>
-          <textarea id="adm-msg" class="form-control" rows="2">${escapeHtml(app.applicant_message || '')}</textarea>
         </div>
 
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.25rem;">
           <button type="button" class="btn btn-primary" id="btn-adm-approve">Verify &amp; Approve</button>
           <button type="button" class="btn btn-gold" id="btn-adm-issue">Issue Official Certificate</button>
-          <button type="button" class="btn btn-outline" id="btn-adm-reqinfo">Request More Info</button>
           <button type="button" class="btn btn-outline" id="btn-adm-reject" style="color:var(--danger); border-color:var(--danger);">Reject Application</button>
         </div>
       </div>
@@ -1042,43 +883,26 @@
     modal.classList.remove('hidden');
 
     document.getElementById('btn-adm-approve').onclick = () => updateAdminStatus(app.id, 'Approved');
-    document.getElementById('btn-adm-issue').onclick = () => triggerCertificateIssuance(app.id);
-    document.getElementById('btn-adm-reqinfo').onclick = () => updateAdminStatus(app.id, 'Additional Information Required');
+    document.getElementById('btn-adm-issue').onclick = () => issueCertificateFirestore(app);
     document.getElementById('btn-adm-reject').onclick = () => {
-      const reason = prompt('Mandatory: Enter the formal reason for rejection:');
+      const reason = prompt('Enter the formal reason for rejection:');
       if (reason && reason.trim()) {
         updateAdminStatus(app.id, 'Rejected', reason.trim());
-      } else {
-        showToast('A mandatory rejection reason is required.', 'warning');
       }
     };
   }
 
-  async function updateAdminStatus(appId, newStatus, rejectionReason = '') {
-    if (!supabaseClient) return;
-
+  async function updateAdminStatus(appId, newStatus, reason = '') {
     try {
       const notes = document.getElementById('adm-notes')?.value || '';
-      const msg = document.getElementById('adm-msg')?.value || '';
-
-      const updatePayload = {
+      const updateData = {
         status: newStatus,
         admin_notes: notes,
-        applicant_message: msg,
-        updated_at: new Date().toISOString()
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
       };
-      if (rejectionReason) updatePayload.rejection_reason = rejectionReason;
+      if (reason) updateData.rejection_reason = reason;
 
-      const { error } = await supabaseClient.from('applications').update(updatePayload).eq('id', appId);
-      if (error) throw error;
-
-      await supabaseClient.from('status_audit_log').insert({
-        application_id: appId,
-        changed_by: activeSessionUser.id,
-        new_status: newStatus,
-        note: rejectionReason ? `Rejected: ${rejectionReason}` : `Transitioned to ${newStatus}`
-      });
-
+      await db.collection('applications').doc(appId).update(updateData);
       showToast(`Status updated to ${newStatus}.`, 'success');
       document.getElementById('modal-admin-review').classList.add('hidden');
       loadAdminApplications();
@@ -1087,15 +911,37 @@
     }
   }
 
-  async function triggerCertificateIssuance(appId) {
-    if (!supabaseClient) return;
-
+  async function issueCertificateFirestore(app) {
     try {
-      // Execute PostgreSQL stored procedure to issue certificate securely
-      const { data, error } = await supabaseClient.rpc('issue_clearance_certificate', { app_id: appId });
-      if (error) throw error;
+      const certNo = 'JCC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const issueDate = new Date().toISOString().split('T')[0];
 
-      showToast(`Certificate ${data.certificate_number} registered!`, 'success');
+      const expiryD = new Date();
+      expiryD.setMonth(expiryD.getMonth() + 6);
+      const expiryDate = expiryD.toISOString().split('T')[0];
+
+      // Save to certificates collection
+      await db.collection('certificates').doc(certNo).set({
+        certificate_number: certNo,
+        application_id: app.id,
+        user_id: app.user_id,
+        applicant_name: app.full_name,
+        issue_date: issueDate,
+        expiry_date: expiryDate,
+        is_revoked: false,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Update application record
+      await db.collection('applications').doc(app.id).update({
+        status: 'Certificate Issued',
+        certificate_number: certNo,
+        issue_date: issueDate,
+        expiry_date: expiryDate,
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showToast(`Certificate ${certNo} issued!`, 'success');
       document.getElementById('modal-admin-review').classList.add('hidden');
       loadAdminApplications();
     } catch (err) {
@@ -1109,10 +955,6 @@
 
   async function handleVerifyCertificate(e) {
     e.preventDefault();
-    if (!supabaseClient) {
-      showToast('Database connection unavailable.', 'error');
-      return;
-    }
 
     const certNo = document.getElementById('verify-cert-id').value.trim().toUpperCase();
     const resultBox = document.getElementById('verify-result-box');
@@ -1127,12 +969,10 @@
     submitBtn.textContent = 'Verifying Record...';
 
     try {
-      const { data, error } = await supabaseClient.rpc('verify_certificate', { cert_no: certNo });
-      if (error) throw error;
-
+      const doc = await db.collection('certificates').doc(certNo).get();
       resultBox.classList.remove('hidden');
 
-      if (!data || !data.found) {
+      if (!doc.exists) {
         resultBox.className = 'verify-result-box verify-invalid';
         resultBox.innerHTML = `
           <h4 style="color:var(--danger);">❌ Certificate Not Found</h4>
@@ -1141,14 +981,19 @@
         return;
       }
 
-      const isValid = data.status === 'Valid & Active';
+      const data = doc.data();
+      const isExpired = new Date() > new Date(data.expiry_date);
+      const isValid = !data.is_revoked && !isExpired;
+
       resultBox.className = `verify-result-box ${isValid ? 'verify-valid' : 'verify-invalid'}`;
       resultBox.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h4 style="color:${isValid ? 'var(--success)' : 'var(--danger)'};">
-            ${isValid ? '✅ Verified Legitimate Certificate' : '⚠️ Certificate ' + data.status}
+            ${isValid ? '✅ Verified Legitimate Certificate' : '⚠️ Certificate Invalid'}
           </h4>
-          <span class="badge-status ${isValid ? 'badge-status-success' : 'badge-status-danger'}">${data.status}</span>
+          <span class="badge-status ${isValid ? 'badge-status-success' : 'badge-status-danger'}">
+            ${data.is_revoked ? 'Revoked' : (isExpired ? 'Expired' : 'Valid & Active')}
+          </span>
         </div>
         <div style="margin-top:0.75rem; font-size:0.9375rem; line-height:1.7;">
           <p><strong>Certificate Serial:</strong> <code>${escapeHtml(data.certificate_number)}</code></p>
@@ -1168,7 +1013,7 @@
     }
   }
 
-  async function downloadCertificatePdf(app, cert) {
+  async function downloadCertificatePdf(app) {
     if (!window.jspdf) {
       showToast('PDF rendering engine unavailable.', 'warning');
       return;
@@ -1180,7 +1025,8 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      const verificationUrl = `${window.location.origin}${window.location.pathname}?cert=${cert.certificate_number}#verify`;
+      const certNo = app.certificate_number || 'JCC-CERT';
+      const verificationUrl = `${window.location.origin}${window.location.pathname}?cert=${certNo}#verify`;
 
       let qrImageBase64 = '';
       if (window.QRCode) {
@@ -1196,7 +1042,7 @@
       doc.setLineWidth(0.6);
       doc.rect(13, 13, 184, 271);
 
-      // Title & Header (Prominent Poster-style Header)
+      // Title & Header
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.setTextColor(10, 25, 47);
@@ -1212,12 +1058,12 @@
       doc.setLineWidth(0.5);
       doc.line(30, 46, 180, 46);
 
-      // Certificate Details
+      // Details
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(10, 25, 47);
-      doc.text(`Registry Serial: ${cert.certificate_number}`, 22, 56);
-      doc.text(`Issue Date: ${cert.issue_date}`, 144, 56);
+      doc.text(`Registry Serial: ${certNo}`, 22, 56);
+      doc.text(`Issue Date: ${app.issue_date || 'N/A'}`, 144, 56);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10.5);
@@ -1225,7 +1071,7 @@
       const statement = "This clearance document confirms that the identity records, address proofs, and local references provided by the applicant identified below have been screened and cataloged in accordance with the established private verification procedures of JCC.";
       doc.text(doc.splitTextToSize(statement, 166), 22, 68);
 
-      // Particulars Box
+      // Box
       doc.setFillColor(248, 250, 252);
       doc.rect(22, 82, 166, 75, "F");
       doc.setDrawColor(226, 232, 240);
@@ -1257,18 +1103,16 @@
       doc.setFont("helvetica", "normal");
       doc.text(String(app.purpose || ''), 78, 142);
 
-      // Validity Statement
+      // Validity
       doc.setFont("helvetica", "bold");
       doc.setTextColor(180, 83, 9);
-      doc.text(`Validity Period: 6 Calendar Months (Valid through ${cert.expiry_date})`, 22, 168);
+      doc.text(`Validity Period: 6 Calendar Months (Valid through ${app.expiry_date || 'N/A'})`, 22, 168);
 
-      // Prominent Owner Name above QR Code
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(10, 25, 47);
       doc.text("Mr. Jahir Narjinary", 44, 180, { align: "center" });
 
-      // Embedded QR Code
       if (qrImageBase64) {
         doc.addImage(qrImageBase64, 'PNG', 24, 184, 40, 40);
         doc.setFontSize(8);
@@ -1277,7 +1121,6 @@
         doc.text("Scan QR code to access live registry confirmation", 22, 228);
       }
 
-      // Owner Signature Block
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(10, 25, 47);
@@ -1296,10 +1139,10 @@
       doc.setTextColor(146, 64, 14);
       doc.text("MANDATORY PRIVATE SERVICE DISCLAIMER:", 26, 251);
       doc.setFont("helvetica", "normal");
-      const disclaimerPara = "This certificate is a private credentialing document. It does NOT represent an official police clearance certificate (PCC) or government agency authorization. It cannot replace statutory state criminal record inquiries.";
+      const disclaimerPara = "This certificate is a private credentialing document. It does NOT represent an official police clearance certificate (PCC) or government agency authorization.";
       doc.text(doc.splitTextToSize(disclaimerPara, 158), 26, 257);
 
-      doc.save(`JCC_Certificate_${cert.certificate_number}.pdf`);
+      doc.save(`JCC_Certificate_${certNo}.pdf`);
       showToast('Clearance certificate PDF downloaded.', 'success');
     } catch (err) {
       showToast(`PDF generation error: ${err.message}`, 'error');
@@ -1312,10 +1155,6 @@
 
   async function handleContactSubmit(e) {
     e.preventDefault();
-    if (!supabaseClient) {
-      showToast('Database connection unavailable.', 'error');
-      return;
-    }
 
     const name = document.getElementById('contact-name').value.trim();
     const email = document.getElementById('contact-email').value.trim();
@@ -1328,10 +1167,10 @@
     }
 
     try {
-      const { error } = await supabaseClient.from('contact_messages').insert({
-        name, email, subject, message
+      await db.collection('contact_messages').add({
+        name, email, subject, message,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
       });
-      if (error) throw error;
 
       showToast('Your message has been stored in our registry desk.', 'success');
       document.getElementById('form-contact').reset();
@@ -1344,9 +1183,7 @@
      INITIALIZATION & EVENT BINDINGS
      ============================================================================= */
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    initSupabase();
-
+  document.addEventListener('DOMContentLoaded', () => {
     // Mobile Hamburger
     const menuToggle = document.getElementById('menu-toggle');
     const siteNav = document.getElementById('site-nav');
@@ -1361,8 +1198,7 @@
       const target = e.target.closest('[data-view]');
       if (target) {
         e.preventDefault();
-        const view = target.getAttribute('data-view');
-        switchView(view);
+        switchView(target.getAttribute('data-view'));
       }
     });
 
@@ -1373,13 +1209,8 @@
         e.preventDefault();
         const targetInput = document.getElementById(btn.getAttribute('data-target'));
         if (targetInput) {
-          if (targetInput.type === 'password') {
-            targetInput.type = 'text';
-            btn.textContent = '🙈';
-          } else {
-            targetInput.type = 'password';
-            btn.textContent = '👁️';
-          }
+          targetInput.type = targetInput.type === 'password' ? 'text' : 'password';
+          btn.textContent = targetInput.type === 'password' ? '👁️' : '🙈';
         }
       }
     });
@@ -1442,7 +1273,7 @@
       switchDashTab('tab-form');
     });
 
-    // Admin Dashboard Card Clicks (Open filtered list)
+    // Admin Filter Selection
     document.querySelectorAll('[data-admin-filter]').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('[data-admin-filter]').forEach(c => c.classList.remove('active'));
@@ -1456,7 +1287,7 @@
       });
     });
 
-    // Applicant Dashboard Card Clicks
+    // Applicant Status Filter Selection
     document.querySelectorAll('[data-filter]').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
@@ -1470,7 +1301,7 @@
       });
     });
 
-    // Modal Close Buttons
+    // Modals
     document.getElementById('btn-close-preview-modal')?.addEventListener('click', () => {
       document.getElementById('modal-preview').classList.add('hidden');
     });
@@ -1486,16 +1317,17 @@
     document.getElementById('admin-search-input')?.addEventListener('input', renderAdminTable);
     document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminApplications);
 
-    // Admin UPI Settings Modal
+    // Admin UPI Config Modal
     document.getElementById('btn-admin-upi-config')?.addEventListener('click', async () => {
       const modal = document.getElementById('modal-admin-upi');
-      if (supabaseClient) {
-        const { data: cfg } = await supabaseClient.from('system_settings').select('*').eq('id', 1).single();
-        if (cfg) {
-          document.getElementById('cfg-upi-id').value = cfg.upi_id;
-          document.getElementById('cfg-payee-name').value = cfg.payee_name;
+      try {
+        const snap = await db.collection('system_settings').doc('general').get();
+        if (snap.exists) {
+          const cfg = snap.data();
+          document.getElementById('cfg-upi-id').value = cfg.upi_id || '';
+          document.getElementById('cfg-payee-name').value = cfg.payee_name || '';
         }
-      }
+      } catch (_) {}
       modal.classList.remove('hidden');
     });
 
@@ -1503,19 +1335,18 @@
       e.preventDefault();
       const upiId = document.getElementById('cfg-upi-id').value.trim();
       const payee = document.getElementById('cfg-payee-name').value.trim();
-      if (!supabaseClient) return;
 
-      const { error } = await supabaseClient.from('system_settings').update({
-        upi_id: upiId,
-        payee_name: payee,
-        updated_at: new Date().toISOString()
-      }).eq('id', 1);
+      try {
+        await db.collection('system_settings').doc('general').set({
+          upi_id: upiId,
+          payee_name: payee,
+          updated_at: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
 
-      if (error) {
-        showToast('Failed to update settings: ' + error.message, 'error');
-      } else {
         showToast('UPI payment configuration saved.', 'success');
         document.getElementById('modal-admin-upi').classList.add('hidden');
+      } catch (err) {
+        showToast('Failed to save settings: ' + err.message, 'error');
       }
     });
 
@@ -1530,9 +1361,6 @@
         document.getElementById('btn-submit-verify').click();
       }
     }
-
-    // Restore online authenticated session
-    await syncSession();
   });
 
   // Helpers

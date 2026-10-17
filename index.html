@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JCC — Jahir Clearance Certificate | Verification &amp; Application Portal</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Pinned official Supabase client and client-side utilities -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+
+  <!-- Firebase App & Service Libraries (Compat SDKs for seamless single-bundle use) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+
+  <!-- Client-side Utilities -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -87,7 +93,7 @@
           <div class="card card-animated text-center">
             <div class="card-icon">🔒</div>
             <h3>Zero-Disclosure Privacy</h3>
-            <p class="text-muted">Private documents are stored in secure buckets under Row Level Security. Public verification never exposes private documents, full addresses, or national ID numbers.</p>
+            <p class="text-muted">Private documents are stored securely. Public verification never exposes private documents, full residential addresses, or national ID numbers.</p>
           </div>
           <div class="card card-animated text-center">
             <div class="card-icon">⚡</div>
@@ -107,7 +113,7 @@
             <div class="step-card">
               <span class="step-num">01</span>
               <h4>Register Account</h4>
-              <p>Create a live persistent account using your User ID and password across any phone, tablet, or desktop.</p>
+              <p>Create a live persistent account using your Email and Password across any phone, tablet, or desktop.</p>
             </div>
             <div class="step-card">
               <span class="step-num">02</span>
@@ -161,12 +167,11 @@
       <div class="container container-sm">
         <div class="card auth-card">
           <h2 class="text-center">Create Live Account</h2>
-          <p class="text-muted text-sm text-center form-sub">Register your User ID to manage applications from any device. No OTP required.</p>
+          <p class="text-muted text-sm text-center form-sub">Register your account to manage applications from any device.</p>
           <form id="form-register" novalidate>
             <div class="form-group">
-              <label for="reg-userid">User ID (Username) *</label>
+              <label for="reg-userid">Username *</label>
               <input type="text" id="reg-userid" class="form-control" placeholder="e.g. rahul99" required autocomplete="username" />
-              <small class="form-hint">4–20 alphanumeric characters or underscores.</small>
             </div>
             <div class="form-group">
               <label for="reg-fullname">Full Legal Name *</label>
@@ -181,16 +186,16 @@
               <input type="tel" id="reg-phone" class="form-control" pattern="[6-9][0-9]{9}" placeholder="9876543210" required />
             </div>
             <div class="form-group">
-              <label for="reg-password">Password (Minimum 8 Characters) *</label>
+              <label for="reg-password">Password (Minimum 6 Characters) *</label>
               <div class="pw-wrapper">
-                <input type="password" id="reg-password" class="form-control" minlength="8" required autocomplete="new-password" />
+                <input type="password" id="reg-password" class="form-control" minlength="6" required autocomplete="new-password" />
                 <button type="button" class="btn-toggle-eye" data-target="reg-password" aria-label="Toggle password view">👁️</button>
               </div>
             </div>
             <div class="form-group">
               <label for="reg-confirm-password">Confirm Password *</label>
               <div class="pw-wrapper">
-                <input type="password" id="reg-confirm-password" class="form-control" minlength="8" required autocomplete="new-password" />
+                <input type="password" id="reg-confirm-password" class="form-control" minlength="6" required autocomplete="new-password" />
                 <button type="button" class="btn-toggle-eye" data-target="reg-confirm-password" aria-label="Toggle confirm password view">👁️</button>
               </div>
             </div>
@@ -217,8 +222,8 @@
           <p class="text-muted text-sm text-center form-sub">Sign in to your persistent cross-device account.</p>
           <form id="form-login" novalidate>
             <div class="form-group">
-              <label for="login-email">Email Address or User ID *</label>
-              <input type="text" id="login-email" class="form-control" placeholder="User ID or email address" required autocomplete="username" />
+              <label for="login-email">Email Address *</label>
+              <input type="email" id="login-email" class="form-control" placeholder="name@domain.com" required autocomplete="username" />
             </div>
             <div class="form-group">
               <label for="login-password">Password *</label>
@@ -242,7 +247,7 @@
         <div class="card auth-card admin-highlight">
           <div class="admin-badge text-center">Administrative Staff Portal</div>
           <h2 class="text-center">Staff Sign In</h2>
-          <p class="text-muted text-sm text-center form-sub">Server-enforced role verification for authorized administrators</p>
+          <p class="text-muted text-sm text-center form-sub">Role verification for authorized administrators</p>
           <form id="form-admin-login" novalidate>
             <div class="form-group">
               <label for="admin-email">Admin Email *</label>
@@ -392,7 +397,6 @@
                     <div class="form-group">
                       <label for="app-aadhaar">National ID / Aadhaar Number (12 Digits) *</label>
                       <input type="text" id="app-aadhaar" class="form-control" pattern="[0-9]{12}" maxlength="12" placeholder="12-digit numeric identifier" required />
-                      <small class="form-hint">Protected under database Row Level Security. Never revealed on public verification.</small>
                     </div>
                     <div class="form-group">
                       <label for="app-passport">Passport Number (Optional)</label>
@@ -607,7 +611,7 @@
           </div>
         </div>
 
-        <!-- 6 Functional Admin Metric Cards -->
+        <!-- Metric Cards -->
         <div class="grid grid-6 stat-deck">
           <div class="card stat-card active" data-admin-filter="ALL">
             <span class="stat-num" id="admin-count-all">0</span>
@@ -649,7 +653,6 @@
             <option value="Approved">Approved</option>
             <option value="Certificate Issued">Certificate Issued</option>
             <option value="Rejected">Rejected</option>
-            <option value="Expired">Expired</option>
           </select>
         </div>
 
@@ -739,7 +742,7 @@
     </section>
   </main>
 
-  <!-- MODAL: APPLICATION PREVIEW & FINAL CONFIRMATION -->
+  <!-- MODAL: APPLICATION PREVIEW -->
   <div id="modal-preview" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-preview-title">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
@@ -754,7 +757,7 @@
     </div>
   </div>
 
-  <!-- MODAL: ADMIN APPLICATION INSPECTION, AUDIT & DOCUMENT REVIEW -->
+  <!-- MODAL: ADMIN APPLICATION INSPECTION -->
   <div id="modal-admin-review" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-review-title">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
