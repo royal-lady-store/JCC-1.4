@@ -1,6 +1,6 @@
 # JCC — Jahir Clearance Certificate Portal
 
-Official web portal and verification engine for **JCC (Jahir Clearance Certificate)**.  
+Official portal and verification engine for **JCC (Jahir Clearance Certificate)**.  
 - **Owner:** Mr. Jahir Narjinary  
 - **Phone:** +91 7384512297  
 - **Email:** jahirkumarnarjinary@gmail.com  
@@ -10,16 +10,16 @@ Official web portal and verification engine for **JCC (Jahir Clearance Certifica
 ---
 
 ## 1. Statutory Notice & Disclaimer
-JCC is an independent private application assistance and reference validation registry. It is **not** an official police department, government ministry, or statutory clearance authority. Any certificate issued through this portal is **not** an official Police Clearance Certificate (PCC) and must not be represented as such.
+JCC is an independent private application assistance and credential screening registry. It is **not** an official police department, government ministry, or statutory clearance authority. Any certificate issued through this portal is **not** an official Police Clearance Certificate (PCC) and must not be represented as such.
 
 ---
 
 ## 2. Why Live Shared Online Data Requires a Backend
 
-A purely static website hosted on GitHub Pages runs exclusively within the local browser sandbox. **Browser-only mechanisms (such as localStorage) cannot synchronize data across separate devices.**
+A static website hosted on GitHub Pages runs exclusively within the local browser sandbox. **Browser-only mechanisms (such as localStorage) cannot synchronize data across separate devices.**
 
 To allow an applicant to register and submit documents on a smartphone, and have those exact files and database records immediately appear on the administrator's dashboard on another computer:
-1. **Live Database:** Hosted PostgreSQL via [Supabase](https://supabase.com) (free tier).
+1. **Live Database:** Hosted PostgreSQL via [Supabase](https://supabase.com) (free tier compatible).
 2. **Private File Storage:** Dedicated private storage buckets for applicant photographs, identity proofs, and payment screenshots.
 3. **Row Level Security (RLS):** Server-side access rules guaranteeing that applicants can only access their own submissions, while authorized administrators can access all records.
 
@@ -32,7 +32,7 @@ To allow an applicant to register and submit documents on a smartphone, and have
 2. Click **New Project**, choose a database password, and create your project.
 3. In the sidebar, navigate to **Project Settings** > **API**.
 4. Copy your **Project URL** and the **`anon` `public` API Key**.
-5. You can paste these directly into the setup card on the website or permanently place them in `app.js` under `JCC_CONFIG`.
+5. Paste these values permanently inside `app.js` under `JCC_CONFIG` (`supabaseUrl` and `supabaseAnonKey`), then commit to your GitHub repository.
 
 ### Step 2: Disable Email Confirmation for Instant Login
 To enable instant registration without requiring email or OTP verification:

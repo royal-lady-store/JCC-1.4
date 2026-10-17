@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JCC — Jahir Clearance Certificate | Verification & Application Portal</title>
+  <title>JCC — Jahir Clearance Certificate | Verification &amp; Application Portal</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Official UMD client bundles to ensure guaranteed global availability on static hosting -->
+  <!-- Pinned official Supabase client and client-side utilities -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -17,7 +17,7 @@
     <div class="container banner-inner">
       <span class="banner-pill">Notice</span>
       <p>
-        JCC is a privately operated application assistance and credential verification service owned by Mr. Jahir Narjinary. It is <strong>not</strong> an official government agency, ministry, or police department. A JCC credential does <strong>not</strong> constitute an official Police Clearance Certificate (PCC) and must not be represented as such under any circumstances.
+        JCC is a privately operated application assistance and credential screening registry owned by Mr. Jahir Narjinary. It is <strong>not</strong> an official government agency, department, or police authority. A JCC credential does <strong>not</strong> constitute an official statutory Police Clearance Certificate (PCC).
       </p>
     </div>
   </aside>
@@ -55,24 +55,24 @@
     </div>
   </header>
 
-  <!-- Notification Toast Container -->
+  <!-- Global Toast Notification Container -->
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
 
   <!-- Primary Application Viewport -->
   <main id="app-viewport">
 
-    <!-- VIEW 0: SETUP WARNING (Visible when Supabase credentials are missing) -->
+    <!-- VIEW 0: SETUP WARNING (Visible ONLY when constants are unconfigured) -->
     <section id="view-setup" class="view-panel hidden">
       <div class="container container-sm">
         <div class="card setup-card text-center">
           <div class="card-icon">⚙️</div>
           <h2>Database Configuration Required</h2>
           <p class="text-muted text-sm">
-            To enable live cross-device synchronization, secure online document uploads, persistent applicant authentication, and authorized administrator management, configure your hosted Supabase credentials below.
+            To activate real online user accounts, cross-device tracking, and secure document storage, please enter your Supabase Project URL and Public Anon Key once in <code>app.js</code> or below.
           </p>
           <div class="form-group text-left" style="margin-top: 1.5rem;">
             <label for="cfg-supabase-url">Supabase Project URL</label>
-            <input type="url" id="cfg-supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co" autocomplete="off" />
+            <input type="url" id="cfg-supabase-url" class="form-control" placeholder="https://xyz.supabase.co" autocomplete="off" />
           </div>
           <div class="form-group text-left">
             <label for="cfg-supabase-key">Supabase Public Anon Key</label>
@@ -80,7 +80,7 @@
           </div>
           <button type="button" id="btn-save-runtime-cfg" class="btn btn-primary btn-block">Connect Live Backend</button>
           <p class="text-muted text-xs" style="margin-top: 1rem;">
-            Credentials can also be permanently embedded directly inside the <code>JCC_CONFIG</code> object within <code>app.js</code>. Refer to <code>README.md</code> for exact SQL setup steps.
+            Saving here stores values in your browser; editing <code>app.js</code> permanently establishes it for all visitors on GitHub Pages.
           </p>
         </div>
       </div>
@@ -107,17 +107,17 @@
           <div class="card card-animated text-center">
             <div class="card-icon">📋</div>
             <h3>Structured Review</h3>
-            <p class="text-muted">Standardized evaluation of residence proofs, identity records, and independent corroboration with two local references.</p>
+            <p class="text-muted">Uniform evaluation of residence proofs, identity credentials, and direct corroboration with two designated local references.</p>
           </div>
           <div class="card card-animated text-center">
             <div class="card-icon">🔒</div>
             <h3>Zero-Disclosure Privacy</h3>
-            <p class="text-muted">Private documents are stored in secure buckets under Row Level Security. Public verification never exposes private documents, full addresses, or identification numbers.</p>
+            <p class="text-muted">Private documents are stored in secure buckets under Row Level Security. Public verification never exposes private documents, full addresses, or national ID numbers.</p>
           </div>
           <div class="card card-animated text-center">
             <div class="card-icon">⚡</div>
             <h3>Tamper-Evident Ledger</h3>
-            <p class="text-muted">Certificates feature unique cryptographic serials, 6-month validity calculations, and embedded real-time validation QR codes.</p>
+            <p class="text-muted">Certificates feature unique cryptographic serials, 6-month validity periods, and embedded real-time validation QR codes.</p>
           </div>
         </div>
       </div>
@@ -142,7 +142,7 @@
             <div class="step-card">
               <span class="step-num">03</span>
               <h4>Pay Fee</h4>
-              <p>Remit the ₹100 fee via office UPI QR code and enter your official 12-digit transaction UTR reference.</p>
+              <p>Remit the ₹100 processing fee via office UPI QR code and enter your official 12-digit transaction UTR reference.</p>
             </div>
             <div class="step-card">
               <span class="step-num">04</span>
@@ -267,7 +267,7 @@
         <div class="card auth-card admin-highlight">
           <div class="admin-badge text-center">Administrative Staff Portal</div>
           <h2 class="text-center">Staff Sign In</h2>
-          <p class="text-muted text-sm text-center form-sub">Authorized personnel verification and operations</p>
+          <p class="text-muted text-sm text-center form-sub">Server-enforced role verification for authorized administrators</p>
           <form id="form-admin-login" novalidate>
             <div class="form-group">
               <label for="admin-email">Admin Email *</label>
@@ -309,7 +309,7 @@
             <div class="dash-header">
               <div>
                 <h2>Applicant Workspace</h2>
-                <p class="text-muted">Access submitted applications, complete payment, and download certificates.</p>
+                <p class="text-muted">Access submitted applications, complete payments, and download issued certificates.</p>
               </div>
               <button type="button" class="btn btn-primary" id="btn-dash-create-app">+ Create Application</button>
             </div>
@@ -415,9 +415,9 @@
 
                   <div class="grid grid-2">
                     <div class="form-group">
-                      <label for="app-aadhaar">Aadhaar Number (12 Digits) *</label>
-                      <input type="text" id="app-aadhaar" class="form-control" pattern="[0-9]{12}" maxlength="12" placeholder="12-digit numeric Aadhaar" required />
-                      <small class="form-hint">Protected securely under RLS. Never displayed publicly.</small>
+                      <label for="app-aadhaar">National ID / Aadhaar Number (12 Digits) *</label>
+                      <input type="text" id="app-aadhaar" class="form-control" pattern="[0-9]{12}" maxlength="12" placeholder="12-digit numeric identifier" required />
+                      <small class="form-hint">Protected under database Row Level Security. Never revealed on public verification.</small>
                     </div>
                     <div class="form-group">
                       <label for="app-passport">Passport Number (Optional)</label>
@@ -589,7 +589,7 @@
                 <div class="qr-col">
                   <div id="payment-qr-canvas" class="qr-box"></div>
                   <div class="payee-box">
-                    <p>Payee: <strong id="payee-name-display">Mr Jahir Narjinary</strong></p>
+                    <p>Payee: <strong id="payee-name-display">Mr. Jahir Narjinary</strong></p>
                     <p>UPI ID: <code id="payee-upi-display">7384512297@upi</code></p>
                     <p>Amount: <strong>₹100.00</strong></p>
                   </div>
@@ -720,7 +720,7 @@
             <div class="contact-card-box">
               <div class="info-unit">
                 <strong>Executive / Registry Owner:</strong>
-                <p>Mr Jahir Narjinary</p>
+                <p>Mr. Jahir Narjinary</p>
               </div>
               <div class="info-unit">
                 <strong>Telephone Desk:</strong>

@@ -6,10 +6,14 @@
 (function () {
   'use strict';
 
-  // Core Business Metadata & Static Fallback
+  // Explicit Supabase Configuration Constants
+  const SUPABASE_URL = "https://swackggwmzjnikesfvnf.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_pMYO7tvI8blebYkvnMm8hQ_PrfaNgMF";
+
+  // Core Business Metadata & Static Configuration Constants
   const JCC_CONFIG = {
-    supabaseUrl: '', // Can be permanently embedded here or entered in View 0
-    supabaseAnonKey: '',
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: SUPABASE_PUBLISHABLE_KEY,
     ownerName: 'Mr. Jahir Narjinary',
     contactPhone: '7384512297',
     contactEmail: 'jahirkumarnarjinary@gmail.com',
@@ -20,7 +24,7 @@
     disclaimerText: 'JCC is a privately operated application assistance service. It is not an official government department, police department, or statutory clearance authority. Any certificate issued must not be represented as an official Police Clearance Certificate.'
   };
 
-  // State Management
+  // State Management Variables
   let supabaseClient = null;
   let activeSessionUser = null;
   let isUserAdmin = false;
@@ -30,11 +34,11 @@
 
   // Initialize Supabase Client with fail-safe validation
   function initSupabase() {
-    const storedUrl = localStorage.getItem('jcc_supabase_url') || JCC_CONFIG.supabaseUrl;
-    const storedKey = localStorage.getItem('jcc_supabase_key') || JCC_CONFIG.supabaseAnonKey;
+    const targetUrl = JCC_CONFIG.supabaseUrl || localStorage.getItem('jcc_supabase_url');
+    const targetKey = JCC_CONFIG.supabaseAnonKey || localStorage.getItem('jcc_supabase_key');
 
-    if (storedUrl && storedKey && window.supabase && typeof window.supabase.createClient === 'function') {
-      supabaseClient = window.supabase.createClient(storedUrl, storedKey, {
+    if (targetUrl && targetKey && window.supabase && typeof window.supabase.createClient === 'function') {
+      supabaseClient = window.supabase.createClient(targetUrl, targetKey, {
         auth: {
           persistSession: true,
           autoRefreshToken: true
@@ -101,7 +105,7 @@
     }
   }
 
-  // Restore authenticated session and determine role
+  // Restore authenticated session and determine role server-side
   async function syncSession() {
     if (!supabaseClient) {
       switchView('setup');
@@ -116,11 +120,15 @@
         activeSessionUser = session.user;
 
         // Query profiles table to determine admin status
-        const { data: profile } = await supabaseClient
+        const { data: profile, error: profileErr } = await supabaseClient
           .from('profiles')
           .select('full_name, is_admin')
           .eq('id', activeSessionUser.id)
           .single();
+
+        if (profileErr) {
+          console.warn("Profile table record not found or inaccessible:", profileErr.message);
+        }
 
         isUserAdmin = Boolean(profile && profile.is_admin);
 
@@ -423,7 +431,7 @@
       supportFile: supportInput.files[0] || null
     };
 
-    // Render Full Form Preview
+    // Render Full Form Preview with Sensitive Identifiers Redacted
     const previewBody = document.getElementById('modal-preview-body');
     previewBody.innerHTML = `
       <div style="line-height: 1.8;">
@@ -431,7 +439,7 @@
         <p><strong>Full Name:</strong> ${escapeHtml(pendingSubmissionPayload.fullName)} (${escapeHtml(pendingSubmissionPayload.gender)})</p>
         <p><strong>DOB:</strong> ${escapeHtml(pendingSubmissionPayload.dob)} | <strong>Nationality:</strong> ${escapeHtml(pendingSubmissionPayload.nationality)}</p>
         <p><strong>Parents:</strong> Father: ${escapeHtml(pendingSubmissionPayload.fatherName)} | Mother: ${escapeHtml(pendingSubmissionPayload.motherName)}</p>
-        <p><strong>Aadhaar Number:</strong> [Aadhaar Redacted] | <strong>Passport:</strong> ${escapeHtml(pendingSubmissionPayload.passport || 'None')}</p>
+        <p><strong>National ID:</strong> [Aadhaar Redacted] | <strong>Passport:</strong> ${escapeHtml(pendingSubmissionPayload.passport || 'None')}</p>
         <p><strong>Contact:</strong> ${escapeHtml(pendingSubmissionPayload.email)} | ${escapeHtml(pendingSubmissionPayload.mobile)}</p>
         
         <hr style="margin: 1rem 0;">
@@ -995,7 +1003,7 @@
           <p><strong>Name:</strong> ${escapeHtml(app.full_name)} (${escapeHtml(app.gender)})</p>
           <p><strong>DOB:</strong> ${escapeHtml(app.dob)} | <strong>Nationality:</strong> ${escapeHtml(app.nationality)}</p>
           <p><strong>Parents:</strong> Father: ${escapeHtml(app.father_name)} | Mother: ${escapeHtml(app.mother_name)}</p>
-          <p><strong>Aadhaar Number:</strong> [Aadhaar Redacted]</p>
+          <p><strong>National ID:</strong> [Aadhaar Redacted]</p>
           <p><strong>Permanent Address:</strong> ${escapeHtml(app.permanent_address)}, ${escapeHtml(app.perm_city)}, ${escapeHtml(app.perm_state)} - ${escapeHtml(app.perm_pin)}</p>
           <p><strong>Residence Duration:</strong> ${escapeHtml(app.residence_duration)}</p>
           <hr style="margin: 1rem 0;">
@@ -1209,7 +1217,7 @@
 
       doc.setDrawColor(212, 175, 55);
       doc.setLineWidth(0.5);
-      doc.line(30, 46, 180, 46);
+      doc.line(30, 48, 180, 48);
 
       // Certificate Details
       doc.setFontSize(11);
