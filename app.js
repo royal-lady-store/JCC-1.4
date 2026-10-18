@@ -1,19 +1,19 @@
 /**
  * JCC — Jahir Clearance Certificate
- * Official Back4App Backend Engine (Parse Platform)
+ * Official Ultra-Fast Parse/Back4App Engine
  */
 
 (function () {
   'use strict';
 
-  // Back4App Initialization with provided keys
+  // Back4App Initialization
   Parse.initialize(
     "BCI1MzauUwBTybhBLlRkuCQpKxYemSTaauWGTrnr", // Application ID
     "G5pkkHEdHK09sbO3FKn7l9b1uCDWQXkM0abYZUhi"  // JavaScript Key
   );
   Parse.serverURL = "https://parseapi.back4app.com/";
 
-  // Core Business Metadata
+  // Core Configuration
   const JCC_CONFIG = {
     ownerName: 'Mr. Jahir Narjinary',
     contactPhone: '7384512297',
@@ -22,15 +22,26 @@
     officeAddress: 'Alipurduar, Kumargram, West Bengal, 736203, India',
     applicationFeeInr: 100,
     defaultUpiId: '7384512297@upi',
-    disclaimerText: 'JCC is a privately operated application assistance service. It is not an official government department, police department, or statutory clearance authority. Any certificate issued must not be represented as an official Police Clearance Certificate.'
+    disclaimerText: 'JCC is a privately operated background screening registry. It is not an official government agency or statutory police department. This credential must not be represented as an official Police Clearance Certificate (PCC).'
   };
 
-  // State Management Variables
   let currentUser = Parse.User.current();
-  let isUserAdmin = currentUser && currentUser.get('email') && currentUser.get('email').toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase();
   let pendingSubmissionPayload = null;
   let cachedApplicantApps = [];
   let cachedAdminApps = [];
+  let activeApplicantFilter = 'ALL';
+  let activeAdminFilter = 'ALL';
+
+  // Helper to read file to Base64 Data URL (Fast & reliable)
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) return resolve('');
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+      reader.readAsDataURL(file);
+    });
+  }
 
   // Toast UI notification stack
   function showToast(message, type = 'info') {
@@ -64,12 +75,19 @@
 
     const siteNav = document.getElementById('site-nav');
     if (siteNav) siteNav.classList.remove('show');
+
+    // Auto load data on view switch
+    if (viewId === 'dashboard') {
+      loadApplicantApplications();
+    } else if (viewId === 'admin') {
+      loadAdminApplications();
+    }
   }
 
   // Synchronize Nav Auth State
   function updateNavAuthUI() {
     currentUser = Parse.User.current();
-    isUserAdmin = currentUser && currentUser.get('email') && currentUser.get('email').toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase();
+    const isAdmin = currentUser && currentUser.get('email') && currentUser.get('email').toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase();
 
     const unauthGroup = document.getElementById('nav-unauth-group');
     const authGroup = document.getElementById('nav-auth-group');
@@ -88,7 +106,7 @@
       if (nameEl) nameEl.textContent = displayName;
       if (emailEl) emailEl.textContent = currentUser.get('email');
 
-      if (isUserAdmin) {
+      if (isAdmin) {
         dashBtn.setAttribute('data-view', 'admin');
         dashBtn.textContent = 'Staff Workspace';
       } else {
@@ -107,7 +125,6 @@
 
   async function handleApplicantRegister(e) {
     e.preventDefault();
-
     const fullName = document.getElementById('reg-fullname').value.trim();
     const email = document.getElementById('reg-email').value.trim().toLowerCase();
     const phone = document.getElementById('reg-phone').value.trim();
@@ -120,7 +137,7 @@
       return;
     }
     if (!declaration) {
-      showToast('You must acknowledge the statutory disclaimer.', 'warning');
+      showToast('Please accept the statutory disclaimer.', 'warning');
       return;
     }
     if (password.length < 6) {
@@ -132,9 +149,9 @@
       return;
     }
 
-    const submitBtn = document.getElementById('btn-submit-reg');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Registering Account...';
+    const btn = document.getElementById('btn-submit-reg');
+    btn.disabled = true;
+    btn.textContent = 'Registering Account...';
 
     try {
       const user = new Parse.User();
@@ -143,25 +160,22 @@
       user.set('password', password);
       user.set('name', fullName);
       user.set('phone', phone);
-
       await user.signUp();
 
-      showToast('Account registered successfully! Welcome to JCC.', 'success');
+      showToast('Registration successful! Welcome.', 'success');
       document.getElementById('form-register').reset();
       updateNavAuthUI();
       switchView('dashboard');
-      loadApplicantApplications();
     } catch (err) {
       showToast(err.message || 'Registration failed.', 'error');
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Complete Registration';
+      btn.disabled = false;
+      btn.textContent = 'Complete Registration';
     }
   }
 
   async function handleApplicantLogin(e) {
     e.preventDefault();
-
     const email = document.getElementById('login-email').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
 
@@ -170,45 +184,42 @@
       return;
     }
 
-    const submitBtn = document.getElementById('btn-submit-login');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Signing In...';
+    const btn = document.getElementById('btn-submit-login');
+    btn.disabled = true;
+    btn.textContent = 'Signing In...';
 
     try {
       await Parse.User.logIn(email, password);
       showToast('Signed in successfully.', 'success');
       updateNavAuthUI();
       switchView('dashboard');
-      loadApplicantApplications();
     } catch (err) {
-      showToast(err.message || 'Invalid email or password.', 'error');
+      showToast(err.message || 'Invalid credentials.', 'error');
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Sign In';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
     }
   }
 
   async function handleAdminLogin(e) {
     e.preventDefault();
-
     const email = document.getElementById('admin-email').value.trim().toLowerCase();
     const password = document.getElementById('admin-password').value;
 
     if (!email || !password) {
-      showToast('Enter your staff credentials.', 'warning');
+      showToast('Enter staff credentials.', 'warning');
       return;
     }
 
-    const submitBtn = document.getElementById('btn-submit-admin-login');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Authenticating Staff...';
+    const btn = document.getElementById('btn-submit-admin-login');
+    btn.disabled = true;
+    btn.textContent = 'Authenticating Staff...';
 
     try {
       let user;
       try {
         user = await Parse.User.logIn(email, password);
       } catch (authErr) {
-        // Auto-create Admin user on first login if not present
         if (email === JCC_CONFIG.adminEmail.toLowerCase()) {
           user = new Parse.User();
           user.set('username', email);
@@ -230,12 +241,11 @@
       showToast('Staff clearance authenticated.', 'success');
       updateNavAuthUI();
       switchView('admin');
-      loadAdminApplications();
     } catch (err) {
       showToast(err.message || 'Staff sign in failed.', 'error');
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Authenticate Staff Session';
+      btn.disabled = false;
+      btn.textContent = 'Authenticate Staff Session';
     }
   }
 
@@ -247,7 +257,7 @@
   }
 
   /* =============================================================================
-     APPLICATION SUBMISSIONS & FILE UPLOADS
+     APPLICATION SUBMISSIONS & 3 FILES UPLOAD
      ============================================================================= */
 
   function switchDashTab(tabId) {
@@ -274,13 +284,25 @@
 
     const photoInput = document.getElementById('app-photo');
     const proofInput = document.getElementById('app-proof-file');
+    const otherDocInput = document.getElementById('app-other-doc');
 
-    if (photoInput.files.length > 0 && photoInput.files[0].size > 200 * 1024) {
-      showToast('Photograph must not exceed 200 KB.', 'error');
-      return;
+    if (!document.getElementById('app-record-id').value) {
+      if (!photoInput.files.length) {
+        showToast('Please select applicant passport photograph.', 'error');
+        return;
+      }
+      if (!proofInput.files.length) {
+        showToast('Please select address proof file.', 'error');
+        return;
+      }
+      if (!otherDocInput.files.length) {
+        showToast('Please select Other Relevant Document (PDF).', 'error');
+        return;
+      }
     }
-    if (proofInput.files.length > 0 && proofInput.files[0].size > 250 * 1024) {
-      showToast('Address proof must not exceed 250 KB.', 'error');
+
+    if (otherDocInput.files.length > 0 && otherDocInput.files[0].type !== 'application/pdf') {
+      showToast('Other Relevant Document must be a valid PDF file.', 'error');
       return;
     }
 
@@ -316,7 +338,8 @@
       ref2Phone: document.getElementById('ref2-phone').value.trim(),
       ref2Address: document.getElementById('ref2-address').value.trim(),
       photoFile: photoInput.files[0] || null,
-      proofFile: proofInput.files[0] || null
+      proofFile: proofInput.files[0] || null,
+      otherDocFile: otherDocInput.files[0] || null
     };
 
     const previewBody = document.getElementById('modal-preview-body');
@@ -326,18 +349,22 @@
         <p><strong>Full Name:</strong> ${escapeHtml(pendingSubmissionPayload.fullName)} (${escapeHtml(pendingSubmissionPayload.gender)})</p>
         <p><strong>DOB:</strong> ${escapeHtml(pendingSubmissionPayload.dob)} | <strong>Nationality:</strong> ${escapeHtml(pendingSubmissionPayload.nationality)}</p>
         <p><strong>Parents:</strong> Father: ${escapeHtml(pendingSubmissionPayload.fatherName)} | Mother: ${escapeHtml(pendingSubmissionPayload.motherName)}</p>
-        <p><strong>National ID:</strong> [Aadhaar Redacted] | <strong>Passport:</strong> ${escapeHtml(pendingSubmissionPayload.passport || 'None')}</p>
+        <p><strong>Aadhaar / National ID:</strong> ${escapeHtml(pendingSubmissionPayload.aadhaar)} | <strong>Passport:</strong> ${escapeHtml(pendingSubmissionPayload.passport || 'None')}</p>
         <p><strong>Contact:</strong> ${escapeHtml(pendingSubmissionPayload.email)} | ${escapeHtml(pendingSubmissionPayload.mobile)}</p>
         
         <hr style="margin: 1rem 0;">
-        <h4>2. Address & Residence Particulars</h4>
+        <h4>2. Address & 3 Uploaded Documents</h4>
         <p><strong>Permanent Address:</strong> ${escapeHtml(pendingSubmissionPayload.permAddress)}, ${escapeHtml(pendingSubmissionPayload.permCity)}, ${escapeHtml(pendingSubmissionPayload.permState)} - ${escapeHtml(pendingSubmissionPayload.permPin)}</p>
-        <p><strong>Residence Duration:</strong> ${escapeHtml(pendingSubmissionPayload.residenceDuration)}</p>
         <p><strong>Present Address:</strong> ${escapeHtml(pendingSubmissionPayload.presentAddress)}</p>
-        <p><strong>Proof Document Type:</strong> ${escapeHtml(pendingSubmissionPayload.proofType)}</p>
+        <p><strong>Uploaded Files:</strong></p>
+        <ul>
+          <li>1. Photo: <strong>${pendingSubmissionPayload.photoFile ? pendingSubmissionPayload.photoFile.name : 'Preserved'}</strong></li>
+          <li>2. Address Proof (${escapeHtml(pendingSubmissionPayload.proofType)}): <strong>${pendingSubmissionPayload.proofFile ? pendingSubmissionPayload.proofFile.name : 'Preserved'}</strong></li>
+          <li>3. Other Relevant Document (PDF): <strong>${pendingSubmissionPayload.otherDocFile ? pendingSubmissionPayload.otherDocFile.name : 'Preserved'}</strong></li>
+        </ul>
 
         <hr style="margin: 1rem 0;">
-        <h4>3. Clearance Purpose & Two References</h4>
+        <h4>3. Verification Purpose & Two References</h4>
         <p><strong>Purpose:</strong> ${escapeHtml(pendingSubmissionPayload.purpose)} ${pendingSubmissionPayload.otherPurpose ? `(${escapeHtml(pendingSubmissionPayload.otherPurpose)})` : ''}</p>
         <p><strong>Reference 1:</strong> ${escapeHtml(pendingSubmissionPayload.ref1Name)} (${escapeHtml(pendingSubmissionPayload.ref1Phone)}) - ${escapeHtml(pendingSubmissionPayload.ref1Address)}</p>
         <p><strong>Reference 2:</strong> ${escapeHtml(pendingSubmissionPayload.ref2Name)} (${escapeHtml(pendingSubmissionPayload.ref2Phone)}) - ${escapeHtml(pendingSubmissionPayload.ref2Address)}</p>
@@ -347,14 +374,14 @@
     document.getElementById('modal-preview').classList.remove('hidden');
   }
 
-  // Upload Files to Back4App & Save Application Object
+  // Fast Dual Save: Parse.File + Base64 fallback (Guaranteed no freeze & instant opening)
   async function executeFinalSubmission() {
     currentUser = Parse.User.current();
     if (!currentUser || !pendingSubmissionPayload) return;
 
     const confirmBtn = document.getElementById('btn-preview-confirm');
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Uploading Documents...';
+    confirmBtn.textContent = 'Uploading 3 Documents...';
 
     try {
       const Application = Parse.Object.extend("Application");
@@ -367,20 +394,40 @@
         appObj = new Application();
       }
 
-      // Upload Photo File
+      // 1. Photo
       if (pendingSubmissionPayload.photoFile) {
-        confirmBtn.textContent = 'Uploading Photo...';
-        const parsePhoto = new Parse.File("photo.jpg", pendingSubmissionPayload.photoFile);
-        await parsePhoto.save();
-        appObj.set("photo", parsePhoto);
+        confirmBtn.textContent = 'Processing Photo...';
+        const photoData = await readFileAsDataURL(pendingSubmissionPayload.photoFile);
+        appObj.set("photo_base64", photoData);
+        try {
+          const parsePhoto = new Parse.File("photo.jpg", pendingSubmissionPayload.photoFile);
+          await parsePhoto.save();
+          appObj.set("photo", parsePhoto);
+        } catch (_) {}
       }
 
-      // Upload Address Proof File
+      // 2. Address Proof
       if (pendingSubmissionPayload.proofFile) {
-        confirmBtn.textContent = 'Uploading Proof...';
-        const parseProof = new Parse.File("address_proof.jpg", pendingSubmissionPayload.proofFile);
-        await parseProof.save();
-        appObj.set("address_proof", parseProof);
+        confirmBtn.textContent = 'Processing Address Proof...';
+        const proofData = await readFileAsDataURL(pendingSubmissionPayload.proofFile);
+        appObj.set("proof_base64", proofData);
+        try {
+          const parseProof = new Parse.File("address_proof.pdf", pendingSubmissionPayload.proofFile);
+          await parseProof.save();
+          appObj.set("address_proof", parseProof);
+        } catch (_) {}
+      }
+
+      // 3. Other Relevant Document (PDF)
+      if (pendingSubmissionPayload.otherDocFile) {
+        confirmBtn.textContent = 'Processing Relevant Document...';
+        const otherData = await readFileAsDataURL(pendingSubmissionPayload.otherDocFile);
+        appObj.set("other_doc_base64", otherData);
+        try {
+          const parseOther = new Parse.File("other_document.pdf", pendingSubmissionPayload.otherDocFile);
+          await parseOther.save();
+          appObj.set("other_doc", parseOther);
+        } catch (_) {}
       }
 
       confirmBtn.textContent = 'Saving Application...';
@@ -418,11 +465,11 @@
 
       document.getElementById('modal-preview').classList.add('hidden');
       document.getElementById('form-clearance-app').reset();
-      showToast('Application submitted! Please proceed to payment.', 'success');
+      showToast('Application submitted! Please proceed to ₹100 payment.', 'success');
       openPaymentInterface(savedApp.id);
 
     } catch (err) {
-      showToast('Submission failed: ' + err.message, 'error');
+      showToast('Submission error: ' + err.message, 'error');
     } finally {
       confirmBtn.disabled = false;
       confirmBtn.textContent = 'Confirm & Final Submit';
@@ -469,7 +516,6 @@
       appObj.set("purpose", document.getElementById('app-purpose').value || 'Employment');
 
       await appObj.save();
-
       showToast('Draft saved successfully.', 'info');
       switchDashTab('tab-overview');
     } catch (err) {
@@ -478,41 +524,60 @@
   }
 
   /* =============================================================================
-     APPLICANT DASHBOARD FETCH
+     APPLICANT DASHBOARD FETCH (Fast & Accurate)
      ============================================================================= */
 
   async function loadApplicantApplications() {
     currentUser = Parse.User.current();
     if (!currentUser) return;
+
     const container = document.getElementById('applicant-records-container');
 
     try {
       const Application = Parse.Object.extend("Application");
       const query = new Parse.Query(Application);
       query.equalTo("user_id", currentUser.id);
-      query.descending("createdAt");
+      query.descending("updatedAt");
+      query.limit(100);
 
       const results = await query.find();
-      cachedApplicantApps = results.map(r => ({ id: r.id, ...r.attributes, parseObj: r }));
+      cachedApplicantApps = results.map(r => ({
+        id: r.id,
+        ...r.attributes,
+        photo_url: r.get('photo') ? r.get('photo').url() : r.get('photo_base64'),
+        parseObj: r
+      }));
 
-      // Metric Counters
+      // Update counters
       document.getElementById('count-app-all').textContent = cachedApplicantApps.length;
       document.getElementById('count-app-draft').textContent = cachedApplicantApps.filter(a => a.status === 'Draft').length;
       document.getElementById('count-app-paypending').textContent = cachedApplicantApps.filter(a => a.status === 'Payment Pending').length;
-      document.getElementById('count-app-approval').textContent = cachedApplicantApps.filter(a => a.status === 'Pending for Approval').length;
+      document.getElementById('count-app-approval').textContent = cachedApplicantApps.filter(a => a.status === 'Pending for Approval' || a.status === 'Payment Verification Pending' || a.status === 'Under Review').length;
       document.getElementById('count-app-issued').textContent = cachedApplicantApps.filter(a => a.status === 'Certificate Issued').length;
       document.getElementById('count-app-rejected').textContent = cachedApplicantApps.filter(a => a.status === 'Rejected').length;
 
-      renderApplicantTable(cachedApplicantApps);
+      filterAndRenderApplicantTable();
     } catch (err) {
       container.innerHTML = `<p class="empty-state text-danger">Error retrieving records: ${escapeHtml(err.message)}</p>`;
     }
   }
 
+  function filterAndRenderApplicantTable() {
+    let filtered = cachedApplicantApps;
+    if (activeApplicantFilter !== 'ALL') {
+      if (activeApplicantFilter === 'Pending for Approval') {
+        filtered = filtered.filter(a => a.status === 'Pending for Approval' || a.status === 'Payment Verification Pending' || a.status === 'Under Review');
+      } else {
+        filtered = filtered.filter(a => a.status === activeApplicantFilter);
+      }
+    }
+    renderApplicantTable(filtered);
+  }
+
   function renderApplicantTable(apps) {
     const container = document.getElementById('applicant-records-container');
     if (!apps.length) {
-      container.innerHTML = '<p class="empty-state">No submissions found. Click "+ Create Application" to begin.</p>';
+      container.innerHTML = '<p class="empty-state">No submissions found under this status. Click "+ Create Application" to begin.</p>';
       return;
     }
 
@@ -521,6 +586,7 @@
         <thead>
           <tr>
             <th>Application ID</th>
+            <th>Applicant Name</th>
             <th>Purpose</th>
             <th>Status</th>
             <th>Actions</th>
@@ -536,7 +602,7 @@
       } else if (app.status === 'Payment Pending') {
         actionBtn = `<button type="button" class="btn btn-gold btn-sm btn-act-pay" data-id="${app.id}">Pay ₹100</button>`;
       } else if (app.status === 'Certificate Issued') {
-        actionBtn = `<button type="button" class="btn btn-primary btn-sm btn-act-download" data-id="${app.id}">Download PDF</button>`;
+        actionBtn = `<button type="button" class="btn btn-primary btn-sm btn-act-download" data-id="${app.id}">📥 Download Certificate PDF</button>`;
       } else {
         actionBtn = `<span class="text-muted text-sm">Under Review</span>`;
       }
@@ -544,7 +610,8 @@
       html += `
         <tr>
           <td><code>${app.id.substring(0, 8)}...</code></td>
-          <td>${escapeHtml(app.purpose)}</td>
+          <td><strong>${escapeHtml(app.full_name || 'N/A')}</strong></td>
+          <td>${escapeHtml(app.purpose || '')}</td>
           <td><span class="badge-status ${getStatusClass(app.status)}">${escapeHtml(app.status)}</span></td>
           <td>${actionBtn}</td>
         </tr>
@@ -563,7 +630,7 @@
     container.querySelectorAll('.btn-act-download').forEach(b => {
       b.addEventListener('click', () => {
         const app = cachedApplicantApps.find(a => a.id === b.getAttribute('data-id'));
-        if (app) downloadCertificatePdf(app);
+        if (app) generateAndDownloadCertificatePdf(app);
       });
     });
   }
@@ -607,7 +674,7 @@
   }
 
   /* =============================================================================
-     PAYMENT GATEWAY (₹100 UPI)
+     DYNAMIC UPI QR PAYMENT SYSTEM (Real-time QR)
      ============================================================================= */
 
   async function openPaymentInterface(appId) {
@@ -621,8 +688,8 @@
       const SystemSettings = Parse.Object.extend("SystemSettings");
       const query = new Parse.Query(SystemSettings);
       const res = await query.first();
-      if (res) {
-        upiId = res.get('upi_id') || upiId;
+      if (res && res.get('upi_id')) {
+        upiId = res.get('upi_id');
         payee = res.get('payee_name') || payee;
       }
     } catch (_) {}
@@ -630,12 +697,13 @@
     document.getElementById('payee-name-display').textContent = payee;
     document.getElementById('payee-upi-display').textContent = upiId;
 
-    const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=100.00&cu=INR&tn=JCC_Fee`;
+    // Real dynamic UPI URI
+    const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=100.00&cu=INR&tn=JCC_Fee_${appId.substring(0,6)}`;
 
     const qrContainer = document.getElementById('payment-qr-canvas');
     qrContainer.innerHTML = '';
     if (window.QRCode) {
-      QRCode.toCanvas(upiUri, { width: 200, margin: 2 }, (err, canvas) => {
+      QRCode.toCanvas(upiUri, { width: 210, margin: 2, color: { dark: '#0A192F', light: '#FFFFFF' } }, (err, canvas) => {
         if (!err && canvas) qrContainer.appendChild(canvas);
       });
     }
@@ -643,19 +711,18 @@
 
   async function handlePaymentSubmission(e) {
     e.preventDefault();
-
     const appId = document.getElementById('pay-app-id').value;
     const utr = document.getElementById('pay-utr').value.trim();
     const screenshotInput = document.getElementById('pay-screenshot');
 
     if (!appId || !utr) {
-      showToast('UTR reference number is required.', 'warning');
+      showToast('12-digit UTR number is required.', 'warning');
       return;
     }
 
     const submitBtn = document.getElementById('btn-confirm-payment');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Uploading Proof...';
+    submitBtn.textContent = 'Submitting Payment...';
 
     try {
       const Application = Parse.Object.extend("Application");
@@ -663,17 +730,20 @@
       const appObj = await query.get(appId);
 
       if (screenshotInput.files.length > 0) {
-        const parseScreenshot = new Parse.File("screenshot.jpg", screenshotInput.files[0]);
-        await parseScreenshot.save();
-        appObj.set("payment_screenshot", parseScreenshot);
+        const screenshotData = await readFileAsDataURL(screenshotInput.files[0]);
+        appObj.set("payment_screenshot_base64", screenshotData);
+        try {
+          const parseScreenshot = new Parse.File("screenshot.jpg", screenshotInput.files[0]);
+          await parseScreenshot.save();
+          appObj.set("payment_screenshot", parseScreenshot);
+        } catch (_) {}
       }
 
       appObj.set("payment_utr", utr);
       appObj.set("status", "Payment Verification Pending");
-
       await appObj.save();
 
-      showToast('Payment submitted for administrator review.', 'success');
+      showToast('Payment submitted for administrator verification!', 'success');
       document.getElementById('form-payment-submission').reset();
       switchDashTab('tab-overview');
     } catch (err) {
@@ -685,7 +755,7 @@
   }
 
   /* =============================================================================
-     ADMIN DASHBOARD & CONTROL PANEL
+     ADMIN DASHBOARD & CONTROL PANEL (Fast Inspection & PDF View)
      ============================================================================= */
 
   async function loadAdminApplications() {
@@ -697,18 +767,28 @@
     try {
       const Application = Parse.Object.extend("Application");
       const query = new Parse.Query(Application);
-      query.descending("createdAt");
+      query.descending("updatedAt");
+      query.limit(200);
 
       const results = await query.find();
-      cachedAdminApps = results.map(r => ({
-        id: r.id,
-        ...r.attributes,
-        photo_url: r.get('photo') ? r.get('photo').url() : '',
-        address_proof_url: r.get('address_proof') ? r.get('address_proof').url() : '',
-        payment_screenshot_url: r.get('payment_screenshot') ? r.get('payment_screenshot').url() : '',
-        parseObj: r
-      }));
+      cachedAdminApps = results.map(r => {
+        const photoFile = r.get('photo');
+        const proofFile = r.get('address_proof');
+        const otherFile = r.get('other_doc');
+        const payFile = r.get('payment_screenshot');
 
+        return {
+          id: r.id,
+          ...r.attributes,
+          photo_url: photoFile ? photoFile.url() : r.get('photo_base64'),
+          proof_url: proofFile ? proofFile.url() : r.get('proof_base64'),
+          other_doc_url: otherFile ? otherFile.url() : r.get('other_doc_base64'),
+          payment_screenshot_url: payFile ? payFile.url() : r.get('payment_screenshot_base64'),
+          parseObj: r
+        };
+      });
+
+      // Update Metric Counters
       document.getElementById('admin-count-all').textContent = cachedAdminApps.length;
       document.getElementById('admin-count-payverify').textContent = cachedAdminApps.filter(a => a.status === 'Payment Verification Pending').length;
       document.getElementById('admin-count-approval').textContent = cachedAdminApps.filter(a => a.status === 'Pending for Approval').length;
@@ -718,18 +798,17 @@
 
       renderAdminTable();
     } catch (err) {
-      container.innerHTML = `<p class="empty-state text-danger">Error retrieving database records: ${escapeHtml(err.message)}</p>`;
+      container.innerHTML = `<p class="empty-state text-danger">Error loading database records: ${escapeHtml(err.message)}</p>`;
     }
   }
 
   function renderAdminTable() {
     const container = document.getElementById('admin-table-container');
-    const statusFilter = document.getElementById('admin-status-filter').value;
     const searchTerm = document.getElementById('admin-search-input').value.toLowerCase().trim();
 
     let filtered = cachedAdminApps;
-    if (statusFilter !== 'ALL') {
-      filtered = filtered.filter(a => a.status === statusFilter);
+    if (activeAdminFilter !== 'ALL') {
+      filtered = filtered.filter(a => a.status === activeAdminFilter);
     }
     if (searchTerm) {
       filtered = filtered.filter(a =>
@@ -760,6 +839,11 @@
     `;
 
     filtered.forEach(app => {
+      let extraDownloadBtn = '';
+      if (app.status === 'Certificate Issued') {
+        extraDownloadBtn = `<button type="button" class="btn btn-primary btn-sm btn-adm-download-cert" data-id="${app.id}" style="margin-left:5px;">📥 PDF</button>`;
+      }
+
       html += `
         <tr>
           <td><code>${app.id.substring(0, 8)}...</code></td>
@@ -772,6 +856,7 @@
           <td><span class="badge-status ${getStatusClass(app.status)}">${escapeHtml(app.status)}</span></td>
           <td>
             <button type="button" class="btn btn-outline btn-sm btn-adm-inspect" data-id="${app.id}">Inspect &amp; Action</button>
+            ${extraDownloadBtn}
           </td>
         </tr>
       `;
@@ -783,8 +868,16 @@
     container.querySelectorAll('.btn-adm-inspect').forEach(btn => {
       btn.addEventListener('click', () => openAdminReviewModal(btn.getAttribute('data-id')));
     });
+
+    container.querySelectorAll('.btn-adm-download-cert').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const app = cachedAdminApps.find(a => a.id === btn.getAttribute('data-id'));
+        if (app) generateAndDownloadCertificatePdf(app);
+      });
+    });
   }
 
+  // Admin Inspection Modal (Opens 3 Documents smoothly)
   function openAdminReviewModal(appId) {
     const app = cachedAdminApps.find(a => a.id === appId);
     if (!app) return;
@@ -798,39 +891,59 @@
           <h4>Applicant Information</h4>
           <p><strong>Name:</strong> ${escapeHtml(app.full_name)} (${escapeHtml(app.gender)})</p>
           <p><strong>DOB:</strong> ${escapeHtml(app.dob)} | <strong>Nationality:</strong> ${escapeHtml(app.nationality)}</p>
-          <p><strong>Parents:</strong> Father: ${escapeHtml(app.father_name)} | Mother: ${escapeHtml(app.mother_name)}</p>
-          <p><strong>National ID:</strong> [Aadhaar Redacted]</p>
-          <p><strong>Permanent Address:</strong> ${escapeHtml(app.permanent_address)}, ${escapeHtml(app.perm_city)}, ${escapeHtml(app.perm_state)} - ${escapeHtml(app.perm_pin)}</p>
-          <p><strong>Residence Duration:</strong> ${escapeHtml(app.residence_duration)}</p>
+          <p><strong>Father:</strong> ${escapeHtml(app.father_name)} | <strong>Mother:</strong> ${escapeHtml(app.mother_name)}</p>
+          <p><strong>Aadhaar / National ID:</strong> ${escapeHtml(app.aadhaar_number)}</p>
+          <p><strong>Address:</strong> ${escapeHtml(app.permanent_address)}, ${escapeHtml(app.perm_city)}, ${escapeHtml(app.perm_state)} - ${escapeHtml(app.perm_pin)}</p>
+          <p><strong>Duration of Residence:</strong> ${escapeHtml(app.residence_duration)}</p>
           <hr style="margin: 1rem 0;">
-          <h4>Two References</h4>
+          <h4>References</h4>
           <p>1. ${escapeHtml(app.ref1_name)} (${escapeHtml(app.ref1_phone)}) - ${escapeHtml(app.ref1_address)}</p>
           <p>2. ${escapeHtml(app.ref2_name)} (${escapeHtml(app.ref2_phone)}) - ${escapeHtml(app.ref2_address)}</p>
         </div>
 
         <div>
-          <h4>Document Evidence</h4>
-          <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
-            ${app.photo_url ? `<a href="${app.photo_url}" target="_blank" class="btn btn-outline btn-sm">📷 View Applicant Photo</a>` : '<span class="text-muted">No photo uploaded</span>'}
-            ${app.address_proof_url ? `<a href="${app.address_proof_url}" target="_blank" class="btn btn-outline btn-sm">📄 View Address Proof (${escapeHtml(app.address_proof_type)})</a>` : '<span class="text-muted">No address proof uploaded</span>'}
-            ${app.payment_screenshot_url ? `<a href="${app.payment_screenshot_url}" target="_blank" class="btn btn-outline btn-sm">💳 View Payment Evidence</a>` : '<span class="text-muted">No payment screenshot</span>'}
+          <h4>Inspect 3 Uploaded Documents</h4>
+          <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:0.5rem;">
+            
+            <!-- File 1: Photo Preview -->
+            <div style="border: 1px solid #E2E8F0; padding: 0.5rem; border-radius: 6px;">
+              <strong>1. Applicant Passport Photo:</strong><br>
+              ${app.photo_url ? `<img src="${app.photo_url}" style="max-height: 120px; border-radius: 4px; margin-top: 5px; display: block;" alt="Applicant Photo" />` : '<span class="text-muted">No photo uploaded</span>'}
+            </div>
+
+            <!-- File 2: Address Proof PDF / Image -->
+            <div style="border: 1px solid #E2E8F0; padding: 0.5rem; border-radius: 6px;">
+              <strong>2. Address Proof (${escapeHtml(app.address_proof_type || 'Document')}):</strong><br>
+              ${app.proof_url ? `<a href="${app.proof_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top: 5px;">📄 Open / Download Address Proof</a>` : '<span class="text-muted">No proof uploaded</span>'}
+            </div>
+
+            <!-- File 3: Other Relevant Document (PDF) -->
+            <div style="border: 1px solid #E2E8F0; padding: 0.5rem; border-radius: 6px;">
+              <strong>3. Other Relevant Document (PDF):</strong><br>
+              ${app.other_doc_url ? `<a href="${app.other_doc_url}" target="_blank" class="btn btn-gold btn-sm" style="margin-top: 5px;">📑 Open / Download Relevant PDF</a>` : '<span class="text-muted">No other document uploaded</span>'}
+            </div>
+
+            <!-- Payment Evidence -->
+            <div style="border: 1px solid #E2E8F0; padding: 0.5rem; border-radius: 6px;">
+              <strong>Payment UTR:</strong> <code>${escapeHtml(app.payment_utr || 'Pending')}</code><br>
+              ${app.payment_screenshot_url ? `<a href="${app.payment_screenshot_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top: 5px;">💳 View Payment Screenshot</a>` : '<span class="text-muted text-sm">No payment screenshot attached</span>'}
+            </div>
           </div>
-          <p style="margin-top:1rem;"><strong>UTR Number:</strong> <code>${escapeHtml(app.payment_utr || 'None')}</code></p>
         </div>
       </div>
 
       <hr style="margin: 1.5rem 0;">
 
       <div>
-        <h4>Administrative Actions</h4>
+        <h4>Administrative Review &amp; Actions</h4>
         <div class="form-group">
           <label for="adm-notes">Internal Administrator Notes</label>
           <textarea id="adm-notes" class="form-control" rows="2">${escapeHtml(app.admin_notes || '')}</textarea>
         </div>
 
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.25rem;">
-          <button type="button" class="btn btn-primary" id="btn-adm-approve">Verify &amp; Approve</button>
-          <button type="button" class="btn btn-gold" id="btn-adm-issue">Issue Official Certificate</button>
+          <button type="button" class="btn btn-primary" id="btn-adm-approve">Verify Payment &amp; Mark Approved</button>
+          <button type="button" class="btn btn-gold" id="btn-adm-issue">Generate &amp; Issue Official Certificate</button>
           <button type="button" class="btn btn-outline" id="btn-adm-reject" style="color:var(--danger); border-color:var(--danger);">Reject Application</button>
         </div>
       </div>
@@ -866,7 +979,9 @@
 
   async function issueCertificateParse(parseObj, app) {
     try {
-      const certNo = 'JCC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      // Unique Certificate Serial Number
+      const randomKey = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const certNo = `JCC-${new Date().getFullYear()}-${randomKey}`;
       const issueDate = new Date().toISOString().split('T')[0];
 
       const expiryD = new Date();
@@ -891,7 +1006,7 @@
       parseObj.set("expiry_date", expiryDate);
       await parseObj.save();
 
-      showToast(`Certificate ${certNo} issued!`, 'success');
+      showToast(`Certificate ${certNo} successfully issued!`, 'success');
       document.getElementById('modal-admin-review').classList.add('hidden');
       loadAdminApplications();
     } catch (err) {
@@ -900,11 +1015,11 @@
   }
 
   /* =============================================================================
-     PUBLIC CERTIFICATE VERIFICATION & CLIENT PDF GENERATION
+     PUBLIC CERTIFICATE VERIFICATION (Live URL & QR Scan Handler)
      ============================================================================= */
 
   async function handleVerifyCertificate(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
 
     const certNo = document.getElementById('verify-cert-id').value.trim().toUpperCase();
     const resultBox = document.getElementById('verify-result-box');
@@ -944,7 +1059,7 @@
       resultBox.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h4 style="color:${isValid ? 'var(--success)' : 'var(--danger)'};">
-            ${isValid ? '✅ Verified Legitimate Certificate' : '⚠️ Certificate Invalid'}
+            ${isValid ? '✅ Verified Legitimate Certificate' : '⚠️ Certificate Invalid / Expired'}
           </h4>
           <span class="badge-status ${isValid ? 'badge-status-success' : 'badge-status-danger'}">
             ${isRevoked ? 'Revoked' : (isExpired ? 'Expired' : 'Valid & Active')}
@@ -952,9 +1067,10 @@
         </div>
         <div style="margin-top:0.75rem; font-size:0.9375rem; line-height:1.7;">
           <p><strong>Certificate Serial:</strong> <code>${escapeHtml(certRecord.get('certificate_number'))}</code></p>
-          <p><strong>Candidate Name:</strong> ${escapeHtml(certRecord.get('applicant_name'))}</p>
+          <p><strong>Candidate Full Name:</strong> ${escapeHtml(certRecord.get('applicant_name'))}</p>
           <p><strong>Date of Issuance:</strong> ${certRecord.get('issue_date')}</p>
-          <p><strong>Valid Through:</strong> ${certRecord.get('expiry_date')}</p>
+          <p><strong>Valid Through:</strong> ${certRecord.get('expiry_date')} (6 Months)</p>
+          <p><strong>Registry Authority:</strong> Mr. Jahir Narjinary, Kumargram, WB</p>
         </div>
         <div style="margin-top:0.75rem; border-top:1px solid #E2E8F0; padding-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">
           <em>Notice: ${JCC_CONFIG.disclaimerText}</em>
@@ -968,192 +1084,204 @@
     }
   }
 
-  async function downloadCertificatePdf(app) {
+  /* =============================================================================
+     PROFESSIONAL HIGH-RESOLUTION PDF GENERATOR
+     - JCC Golden Emblem Header
+     - Embedded Applicant Photo
+     - Father, Mother, Address, DOB, Gender
+     - Embedded Scannable Verification QR Code
+     ============================================================================= */
+
+  async function generateAndDownloadCertificatePdf(app) {
     if (!window.jspdf) {
       showToast('PDF rendering engine unavailable.', 'warning');
       return;
     }
 
-    showToast('Rendering official certificate PDF...', 'info');
+    showToast('Rendering verified clearance certificate PDF...', 'info');
 
     try {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      const certNo = app.certificate_number || 'JCC-CERT';
-      const verificationUrl = `${window.location.origin}${window.location.pathname}?cert=${certNo}#verify`;
+      const certNo = app.certificate_number || `JCC-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      
+      // Real QR Code Link (When scanned, opens verify tab with serial prefilled)
+      const baseUrl = window.location.origin + window.location.pathname;
+      const verificationUrl = `${baseUrl}?cert=${encodeURIComponent(certNo)}#verify`;
 
       let qrImageBase64 = '';
       if (window.QRCode) {
-        qrImageBase64 = await QRCode.toDataURL(verificationUrl, { width: 140, margin: 1 });
+        qrImageBase64 = await QRCode.toDataURL(verificationUrl, { width: 160, margin: 1 });
       }
 
-      // Border Styling
-      doc.setDrawColor(10, 25, 47);
+      // 1. Double Borders (Navy Blue & Gold)
+      doc.setDrawColor(10, 25, 47); // Navy
       doc.setLineWidth(1.8);
       doc.rect(10, 10, 190, 277);
 
-      doc.setDrawColor(212, 175, 55);
-      doc.setLineWidth(0.6);
+      doc.setDrawColor(212, 175, 55); // Gold
+      doc.setLineWidth(0.8);
       doc.rect(13, 13, 184, 271);
 
-      // Title & Header
+      // 2. Top Emblem & Header
+      doc.setFillColor(10, 25, 47);
+      doc.circle(105, 26, 9, 'F');
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
+      doc.setFontSize(9);
+      doc.setTextColor(212, 175, 55);
+      doc.text("JCC", 105, 29, { align: "center" });
+
+      doc.setFontSize(20);
       doc.setTextColor(10, 25, 47);
-      doc.text("JCC — Jahir Clearance Certificate", 105, 30, { align: "center" });
+      doc.text("JCC — JAHIR CLEARANCE CERTIFICATE", 105, 42, { align: "center" });
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 116, 139);
-      doc.text("Independent Private Background Record Screening Registry", 105, 36, { align: "center" });
-      doc.text(`${JCC_CONFIG.officeAddress} | Phone: +91 ${JCC_CONFIG.contactPhone}`, 105, 41, { align: "center" });
+      doc.text("Standardized Private Background Screening & Reference Registry", 105, 48, { align: "center" });
+      doc.text(`${JCC_CONFIG.officeAddress} | Phone: +91 ${JCC_CONFIG.contactPhone}`, 105, 53, { align: "center" });
 
       doc.setDrawColor(212, 175, 55);
-      doc.setLineWidth(0.5);
-      doc.line(30, 46, 180, 46);
+      doc.setLineWidth(0.6);
+      doc.line(25, 58, 185, 58);
 
-      // Details
+      // 3. Serial Number & Issuance Metadata Bar
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(10, 25, 47);
-      doc.text(`Registry Serial: ${certNo}`, 22, 56);
-      doc.text(`Issue Date: ${app.issue_date || 'N/A'}`, 144, 56);
+      doc.text(`Certificate No: ${certNo}`, 22, 67);
+      doc.text(`Issue Date: ${app.issue_date || new Date().toISOString().split('T')[0]}`, 140, 67);
 
+      // 4. Clearance Endorsement Statement
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10.5);
-      doc.setTextColor(15, 23, 42);
-      const statement = "This clearance document confirms that the identity records, address proofs, and local references provided by the applicant identified below have been screened and cataloged in accordance with the established private verification procedures of JCC.";
-      doc.text(doc.splitTextToSize(statement, 166), 22, 68);
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      const endorsement = "This is to certify that the personal identification records, residential credentials, and local background references of the applicant detailed below have been formally vetted, verified, and placed on file by the JCC clearance registry.";
+      doc.text(doc.splitTextToSize(endorsement, 166), 22, 75);
 
-      // Box
+      // 5. Applicant Particulars Box (With Embedded Photo)
       doc.setFillColor(248, 250, 252);
-      doc.rect(22, 82, 166, 75, "F");
+      doc.rect(22, 86, 166, 88, "F");
       doc.setDrawColor(226, 232, 240);
-      doc.rect(22, 82, 166, 75, "S");
+      doc.rect(22, 86, 166, 88, "S");
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Candidate Legal Name:", 26, 92);
-      doc.setFont("helvetica", "normal");
-      doc.text(String(app.full_name || ''), 78, 92);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Parent / Guardian Name:", 26, 102);
-      doc.setFont("helvetica", "normal");
-      doc.text(String(app.father_name || ''), 78, 102);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("DOB & Gender:", 26, 112);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${app.dob || ''} | ${app.gender || ''}`, 78, 112);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Verified Address:", 26, 122);
-      doc.setFont("helvetica", "normal");
-      const addressLine = `${app.permanent_address || ''}, ${app.perm_city || ''}, ${app.perm_state || ''} - ${app.perm_pin || ''}`;
-      doc.text(doc.splitTextToSize(addressLine, 106), 78, 122);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Screening Purpose:", 26, 142);
-      doc.setFont("helvetica", "normal");
-      doc.text(String(app.purpose || ''), 78, 142);
-
-      // Validity
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(180, 83, 9);
-      doc.text(`Validity Period: 6 Calendar Months (Valid through ${app.expiry_date || 'N/A'})`, 22, 168);
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(10, 25, 47);
-      doc.text("Mr. Jahir Narjinary", 44, 180, { align: "center" });
-
-      if (qrImageBase64) {
-        doc.addImage(qrImageBase64, 'PNG', 24, 184, 40, 40);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 116, 139);
-        doc.text("Scan QR code to access live registry confirmation", 22, 228);
+      // Draw Candidate Photo if available
+      if (app.photo_url) {
+        try {
+          doc.addImage(app.photo_url, 'JPEG', 148, 92, 34, 42);
+          doc.setDrawColor(212, 175, 55);
+          doc.rect(148, 92, 34, 42, "S");
+        } catch (_) {}
       }
 
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
+      doc.setTextColor(10, 25, 47);
+
+      doc.text("Candidate Full Name:", 26, 96);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(app.full_name || 'N/A'), 74, 96);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Father's Name:", 26, 105);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(app.father_name || 'N/A'), 74, 105);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Mother's Name:", 26, 114);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(app.mother_name || 'N/A'), 74, 114);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Date of Birth & Gender:", 26, 123);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${app.dob || 'N/A'}  |  ${app.gender || 'N/A'}`, 74, 123);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("National ID (Aadhaar):", 26, 132);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(app.aadhaar_number || 'Verified on File'), 74, 132);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Permanent Address:", 26, 141);
+      doc.setFont("helvetica", "normal");
+      const fullAddr = `${app.permanent_address || ''}, ${app.perm_city || ''}, ${app.perm_state || ''} - ${app.perm_pin || ''}`;
+      doc.text(doc.splitTextToSize(fullAddr, 72), 74, 141);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Screening Purpose:", 26, 163);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(app.purpose || 'Private Background Reference'), 74, 163);
+
+      // 6. Validity Strip
+      doc.setFillColor(254, 243, 199); // Soft Gold
+      doc.rect(22, 178, 166, 10, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(180, 83, 9);
+      doc.text(`VALIDITY: 6 Calendar Months (Valid until ${app.expiry_date || 'N/A'})`, 105, 184.5, { align: "center" });
+
+      // 7. QR Code & Authorized Signatory Block
+      if (qrImageBase64) {
+        doc.addImage(qrImageBase64, 'PNG', 24, 195, 38, 38);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(10, 25, 47);
+        doc.text("Scan QR Code to Verify", 24, 237);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 116, 139);
+        doc.text("Real-time registry confirmation", 24, 241);
+      }
+
+      // Signature block
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(10, 25, 47);
-      doc.text(JCC_CONFIG.ownerName, 142, 212);
-      doc.setFont("helvetica", "normal");
-      doc.text("Authorized Registry Officer", 136, 217);
-      doc.text("JCC Operations Authority", 138, 222);
+      doc.text("Mr. Jahir Narjinary", 152, 218, { align: "center" });
       doc.setLineWidth(0.4);
-      doc.line(130, 207, 186, 207);
+      doc.line(125, 222, 180, 222);
 
-      // Statutory Disclaimer
-      doc.setFillColor(254, 243, 199);
-      doc.rect(22, 244, 166, 26, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text("Authorized Registry Officer", 152, 227, { align: "center" });
+      doc.text("JCC Operations Authority", 152, 232, { align: "center" });
+
+      // 8. Mandatory Statutory Disclaimer Footer
+      doc.setFillColor(241, 245, 249);
+      doc.rect(22, 248, 166, 26, "F");
       doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(146, 64, 14);
-      doc.text("MANDATORY PRIVATE SERVICE DISCLAIMER:", 26, 251);
+      doc.setTextColor(15, 23, 42);
+      doc.text("STATUTORY PRIVATE CLEARANCE NOTICE:", 26, 254);
       doc.setFont("helvetica", "normal");
-      const disclaimerPara = "This certificate is a private credentialing document. It does NOT represent an official police clearance certificate (PCC) or government agency authorization.";
-      doc.text(doc.splitTextToSize(disclaimerPara, 158), 26, 257);
+      doc.setTextColor(71, 85, 105);
+      const disTxt = "This document is an independent private screening credential issued by Mr. Jahir Narjinary. It is NOT an official police clearance certificate (PCC) or government agency certificate. Any misrepresentation is strictly prohibited.";
+      doc.text(doc.splitTextToSize(disTxt, 158), 26, 260);
 
       doc.save(`JCC_Certificate_${certNo}.pdf`);
-      showToast('Clearance certificate PDF downloaded.', 'success');
+      showToast('Clearance certificate PDF downloaded successfully!', 'success');
     } catch (err) {
       showToast(`PDF generation error: ${err.message}`, 'error');
     }
   }
 
   /* =============================================================================
-     CONTACT INQUIRY FORM
-     ============================================================================= */
-
-  async function handleContactSubmit(e) {
-    e.preventDefault();
-
-    const name = document.getElementById('contact-name').value.trim();
-    const email = document.getElementById('contact-email').value.trim();
-    const subject = document.getElementById('contact-subject').value.trim();
-    const message = document.getElementById('contact-message').value.trim();
-
-    if (!name || !email || !subject || !message) {
-      showToast('Please fill out all contact fields.', 'warning');
-      return;
-    }
-
-    try {
-      const ContactMessage = Parse.Object.extend("ContactMessage");
-      const contactObj = new ContactMessage();
-      contactObj.set("name", name);
-      contactObj.set("email", email);
-      contactObj.set("subject", subject);
-      contactObj.set("message", message);
-      await contactObj.save();
-
-      showToast('Your message has been stored in our registry desk.', 'success');
-      document.getElementById('form-contact').reset();
-    } catch (err) {
-      showToast('Failed to record message: ' + err.message, 'error');
-    }
-  }
-
-  /* =============================================================================
-     INITIALIZATION & EVENT BINDINGS
+     INITIALIZATION & EVENT LISTENERS
      ============================================================================= */
 
   document.addEventListener('DOMContentLoaded', () => {
     updateNavAuthUI();
 
-    // Mobile Hamburger
+    // Hamburger Mobile Menu
     const menuToggle = document.getElementById('menu-toggle');
     const siteNav = document.getElementById('site-nav');
     if (menuToggle && siteNav) {
-      menuToggle.addEventListener('click', () => {
-        siteNav.classList.toggle('show');
-      });
+      menuToggle.addEventListener('click', () => siteNav.classList.toggle('show'));
     }
 
-    // Navigation Delegations
+    // View Navigation
     document.addEventListener('click', (e) => {
       const target = e.target.closest('[data-view]');
       if (target) {
@@ -1162,7 +1290,7 @@
       }
     });
 
-    // Password visibility eye toggles
+    // Password Eye Toggles
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-toggle-eye');
       if (btn) {
@@ -1178,7 +1306,7 @@
     // Global Logout
     document.getElementById('btn-global-logout')?.addEventListener('click', handleLogout);
 
-    // Form Event Bindings
+    // Form Submissions
     document.getElementById('form-register')?.addEventListener('submit', handleApplicantRegister);
     document.getElementById('form-login')?.addEventListener('submit', handleApplicantLogin);
     document.getElementById('form-admin-login')?.addEventListener('submit', handleAdminLogin);
@@ -1190,9 +1318,8 @@
     });
     document.getElementById('form-payment-submission')?.addEventListener('submit', handlePaymentSubmission);
     document.getElementById('form-verify-certificate')?.addEventListener('submit', handleVerifyCertificate);
-    document.getElementById('form-contact')?.addEventListener('submit', handleContactSubmit);
 
-    // Address Mirror Checkbox
+    // Same Address Checkbox
     document.getElementById('app-same-address')?.addEventListener('change', (e) => {
       const box = document.getElementById('present-address-box');
       const presentInput = document.getElementById('app-present-address');
@@ -1204,7 +1331,7 @@
       }
     });
 
-    // Purpose Other Conditional Toggle
+    // Other Purpose Toggle
     document.getElementById('app-purpose')?.addEventListener('change', (e) => {
       const box = document.getElementById('other-purpose-box');
       if (e.target.value === 'Other') {
@@ -1233,35 +1360,43 @@
       switchDashTab('tab-form');
     });
 
-    // Admin Filter Selection
-    document.querySelectorAll('[data-admin-filter]').forEach(card => {
-      card.addEventListener('click', () => {
-        document.querySelectorAll('[data-admin-filter]').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        const filter = card.getAttribute('data-admin-filter');
-        const filterSelect = document.getElementById('admin-status-filter');
-        if (filterSelect) {
-          filterSelect.value = filter;
-          renderAdminTable();
-        }
-      });
-    });
-
-    // Applicant Status Filter Selection
+    // Applicant Status Filters
     document.querySelectorAll('[data-filter]').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
-        const filter = card.getAttribute('data-filter');
-        let filtered = cachedApplicantApps;
-        if (filter !== 'ALL') {
-          filtered = cachedApplicantApps.filter(a => a.status === filter);
-        }
-        renderApplicantTable(filtered);
+        activeApplicantFilter = card.getAttribute('data-filter');
+        filterAndRenderApplicantTable();
       });
     });
 
-    // Modals
+    // Admin Status Filters
+    document.querySelectorAll('[data-admin-filter]').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('[data-admin-filter]').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        activeAdminFilter = card.getAttribute('data-admin-filter');
+        const filterSelect = document.getElementById('admin-status-filter');
+        if (filterSelect) filterSelect.value = activeAdminFilter;
+        renderAdminTable();
+      });
+    });
+
+    // Admin Search & Filter Dropdown
+    document.getElementById('admin-status-filter')?.addEventListener('change', (e) => {
+      activeAdminFilter = e.target.value;
+      document.querySelectorAll('[data-admin-filter]').forEach(c => {
+        if (c.getAttribute('data-admin-filter') === activeAdminFilter) c.classList.add('active');
+        else c.classList.remove('active');
+      });
+      renderAdminTable();
+    });
+
+    document.getElementById('admin-search-input')?.addEventListener('input', renderAdminTable);
+    document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminApplications);
+    document.getElementById('btn-applicant-refresh')?.addEventListener('click', loadApplicantApplications);
+
+    // Modals Close
     document.getElementById('btn-close-preview-modal')?.addEventListener('click', () => {
       document.getElementById('modal-preview').classList.add('hidden');
     });
@@ -1272,12 +1407,7 @@
       document.getElementById('modal-admin-upi').classList.add('hidden');
     });
 
-    // Admin Controls
-    document.getElementById('admin-status-filter')?.addEventListener('change', renderAdminTable);
-    document.getElementById('admin-search-input')?.addEventListener('input', renderAdminTable);
-    document.getElementById('btn-admin-refresh')?.addEventListener('click', loadAdminApplications);
-
-    // Admin UPI Config Modal
+    // Dynamic Admin UPI Settings Modal
     document.getElementById('btn-admin-upi-config')?.addEventListener('click', async () => {
       const modal = document.getElementById('modal-admin-upi');
       try {
@@ -1285,8 +1415,11 @@
         const query = new Parse.Query(SystemSettings);
         const res = await query.first();
         if (res) {
-          document.getElementById('cfg-upi-id').value = res.get('upi_id') || '';
-          document.getElementById('cfg-payee-name').value = res.get('payee_name') || '';
+          document.getElementById('cfg-upi-id').value = res.get('upi_id') || JCC_CONFIG.defaultUpiId;
+          document.getElementById('cfg-payee-name').value = res.get('payee_name') || JCC_CONFIG.ownerName;
+        } else {
+          document.getElementById('cfg-upi-id').value = JCC_CONFIG.defaultUpiId;
+          document.getElementById('cfg-payee-name').value = JCC_CONFIG.ownerName;
         }
       } catch (_) {}
       modal.classList.remove('hidden');
@@ -1307,22 +1440,22 @@
         res.set('payee_name', payee);
         await res.save();
 
-        showToast('UPI payment configuration saved.', 'success');
+        showToast('UPI ID saved! Dynamic QR updated for all payments.', 'success');
         document.getElementById('modal-admin-upi').classList.add('hidden');
       } catch (err) {
-        showToast('Failed to save settings: ' + err.message, 'error');
+        showToast('Failed to save UPI: ' + err.message, 'error');
       }
     });
 
-    // URL Query Auto-Verification (?cert=JCC-2026-XXXXXX)
-    const queryParams = new URLSearchParams(window.location.search);
-    const certParam = queryParams.get('cert');
-    if (certParam) {
+    // Direct QR Code Auto-Verification via URL (?cert=JCC-2026-XXXXXX)
+    const urlParams = new URLSearchParams(window.location.search);
+    const certFromUrl = urlParams.get('cert');
+    if (certFromUrl) {
       switchView('verify');
       const input = document.getElementById('verify-cert-id');
       if (input) {
-        input.value = certParam;
-        document.getElementById('btn-submit-verify').click();
+        input.value = certFromUrl;
+        handleVerifyCertificate(null);
       }
     }
   });
