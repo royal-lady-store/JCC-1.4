@@ -1,21 +1,17 @@
 /**
  * JCC — Jahir Clearance Certificate
- * Official Firebase Backend Engine (Firestore + Auth + Cloud Storage)
+ * Official Back4App Backend Engine (Parse Platform)
  */
 
 (function () {
   'use strict';
 
-  // Your verified Firebase Configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBWAjCpj_FMBHeC6UhkxiNZ6eWfpDZ1GxA",
-    authDomain: "jc-clearence.firebaseapp.com",
-    projectId: "jc-clearence",
-    storageBucket: "jc-clearence.firebasestorage.app",
-    messagingSenderId: "793099295258",
-    appId: "1:793099295258:web:a5a2c3a0ca9f91d01b4fa3",
-    measurementId: "G-W2TL0M2YGC"
-  };
+  // Back4App Initialization with provided keys
+  Parse.initialize(
+    "BCI1MzauUwBTybhBLlRkuCQpKxYemSTaauWGTrnr", // Application ID
+    "G5pkkHEdHK09sbO3FKn7l9b1uCDWQXkM0abYZUhi"  // JavaScript Key
+  );
+  Parse.serverURL = "https://parseapi.back4app.com/";
 
   // Core Business Metadata
   const JCC_CONFIG = {
@@ -29,15 +25,9 @@
     disclaimerText: 'JCC is a privately operated application assistance service. It is not an official government department, police department, or statutory clearance authority. Any certificate issued must not be represented as an official Police Clearance Certificate.'
   };
 
-  // Initialize Firebase Services
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const storage = firebase.storage();
-
   // State Management Variables
-  let activeSessionUser = null;
-  let isUserAdmin = false;
+  let currentUser = Parse.User.current();
+  let isUserAdmin = currentUser && currentUser.get('email') && currentUser.get('email').toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase();
   let pendingSubmissionPayload = null;
   let cachedApplicantApps = [];
   let cachedAdminApps = [];
@@ -53,7 +43,7 @@
     setTimeout(() => { toast.remove(); }, 4500);
   }
 
-  // Single Page Application Navigation Router
+  // SPA Navigation Router
   function switchView(viewId) {
     const panels = document.querySelectorAll('.view-panel');
     panels.forEach(p => p.classList.add('hidden'));
@@ -78,13 +68,26 @@
 
   // Synchronize Nav Auth State
   function updateNavAuthUI() {
+    currentUser = Parse.User.current();
+    isUserAdmin = currentUser && currentUser.get('email') && currentUser.get('email').toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase();
+
     const unauthGroup = document.getElementById('nav-unauth-group');
     const authGroup = document.getElementById('nav-auth-group');
     const dashBtn = document.getElementById('btn-nav-dashboard');
 
-    if (activeSessionUser) {
+    if (currentUser) {
       unauthGroup.classList.add('hidden');
       authGroup.classList.remove('hidden');
+
+      const avatarEl = document.getElementById('dash-avatar');
+      const nameEl = document.getElementById('dash-user-name');
+      const emailEl = document.getElementById('dash-user-email');
+
+      const displayName = currentUser.get('name') || currentUser.get('username') || 'User';
+      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+      if (nameEl) nameEl.textContent = displayName;
+      if (emailEl) emailEl.textContent = currentUser.get('email');
+
       if (isUserAdmin) {
         dashBtn.setAttribute('data-view', 'admin');
         dashBtn.textContent = 'Staff Workspace';
@@ -97,29 +100,6 @@
       authGroup.classList.add('hidden');
     }
   }
-
-  // Auth State Listener
-  auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      activeSessionUser = user;
-      isUserAdmin = (user.email && user.email.toLowerCase() === JCC_CONFIG.adminEmail.toLowerCase());
-
-      const avatarEl = document.getElementById('dash-avatar');
-      const nameEl = document.getElementById('dash-user-name');
-      const emailEl = document.getElementById('dash-user-email');
-
-      const displayName = user.displayName || user.email;
-      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
-      if (nameEl) nameEl.textContent = displayName;
-      if (emailEl) emailEl.textContent = user.email;
-
-      updateNavAuthUI();
-    } else {
-      activeSessionUser = null;
-      isUserAdmin = false;
-      updateNavAuthUI();
-    }
-  });
 
   /* =============================================================================
      AUTHENTICATION HANDLERS
@@ -144,7 +124,7 @@
       return;
     }
     if (password.length < 6) {
-      showToast('Password must be at least 6 characters in Firebase.', 'warning');
+      showToast('Password must be at least 6 characters.', 'warning');
       return;
     }
     if (password !== confirmPassword) {
@@ -157,20 +137,18 @@
     submitBtn.textContent = 'Registering Account...';
 
     try {
-      const cred = await auth.createUserWithEmailAndPassword(email, password);
-      await cred.user.updateProfile({ displayName: fullName });
+      const user = new Parse.User();
+      user.set('username', email);
+      user.set('email', email);
+      user.set('password', password);
+      user.set('name', fullName);
+      user.set('phone', phone);
 
-      // Save user record to Firestore 'profiles' collection
-      await db.collection('profiles').doc(cred.user.uid).set({
-        full_name: fullName,
-        email: email,
-        phone: phone,
-        is_admin: (email === JCC_CONFIG.adminEmail),
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      await user.signUp();
 
       showToast('Account registered successfully! Welcome to JCC.', 'success');
       document.getElementById('form-register').reset();
+      updateNavAuthUI();
       switchView('dashboard');
       loadApplicantApplications();
     } catch (err) {
@@ -197,12 +175,13 @@
     submitBtn.textContent = 'Signing In...';
 
     try {
-      await auth.signInWithEmailAndPassword(email, password);
+      await Parse.User.logIn(email, password);
       showToast('Signed in successfully.', 'success');
+      updateNavAuthUI();
       switchView('dashboard');
       loadApplicantApplications();
     } catch (err) {
-      showToast(err.message || 'Invalid credentials.', 'error');
+      showToast(err.message || 'Invalid email or password.', 'error');
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Sign In';
@@ -225,35 +204,33 @@
     submitBtn.textContent = 'Authenticating Staff...';
 
     try {
-      let userCred;
+      let user;
       try {
-        userCred = await auth.signInWithEmailAndPassword(email, password);
+        user = await Parse.User.logIn(email, password);
       } catch (authErr) {
-        // If admin account doesn't exist yet in Firebase, auto-create it with provided credentials
-        if (email === JCC_CONFIG.adminEmail.toLowerCase() && authErr.code === 'auth/user-not-found') {
-          userCred = await auth.createUserWithEmailAndPassword(email, password);
-          await userCred.user.updateProfile({ displayName: 'Administrator' });
-          await db.collection('profiles').doc(userCred.user.uid).set({
-            full_name: 'Administrator',
-            email: email,
-            is_admin: true,
-            created_at: firebase.firestore.FieldValue.serverTimestamp()
-          });
+        // Auto-create Admin user on first login if not present
+        if (email === JCC_CONFIG.adminEmail.toLowerCase()) {
+          user = new Parse.User();
+          user.set('username', email);
+          user.set('email', email);
+          user.set('password', password);
+          user.set('name', 'Administrator');
+          user.set('is_admin', true);
+          await user.signUp();
         } else {
           throw authErr;
         }
       }
 
-      if (email !== JCC_CONFIG.adminEmail.toLowerCase()) {
-        await auth.signOut();
+      if (user.get('email').toLowerCase() !== JCC_CONFIG.adminEmail.toLowerCase()) {
+        await Parse.User.logOut();
         throw new Error('Access denied: Unauthorized staff account.');
       }
 
-      isUserAdmin = true;
       showToast('Staff clearance authenticated.', 'success');
+      updateNavAuthUI();
       switchView('admin');
       loadAdminApplications();
-      subscribeToLiveApplications();
     } catch (err) {
       showToast(err.message || 'Staff sign in failed.', 'error');
     } finally {
@@ -263,16 +240,14 @@
   }
 
   async function handleLogout() {
-    await auth.signOut();
-    activeSessionUser = null;
-    isUserAdmin = false;
+    await Parse.User.logOut();
     updateNavAuthUI();
     showToast('Signed out.', 'info');
     switchView('home');
   }
 
   /* =============================================================================
-     DOCUMENT SUBMISSIONS WITH FORM PREVIEW
+     APPLICATION SUBMISSIONS & FILE UPLOADS
      ============================================================================= */
 
   function switchDashTab(tabId) {
@@ -299,7 +274,6 @@
 
     const photoInput = document.getElementById('app-photo');
     const proofInput = document.getElementById('app-proof-file');
-    const supportInput = document.getElementById('app-support-file');
 
     if (photoInput.files.length > 0 && photoInput.files[0].size > 200 * 1024) {
       showToast('Photograph must not exceed 200 KB.', 'error');
@@ -307,10 +281,6 @@
     }
     if (proofInput.files.length > 0 && proofInput.files[0].size > 250 * 1024) {
       showToast('Address proof must not exceed 250 KB.', 'error');
-      return;
-    }
-    if (supportInput.files.length > 0 && supportInput.files[0].size > 2 * 1024 * 1024) {
-      showToast('Supporting document must not exceed 2 MB.', 'error');
       return;
     }
 
@@ -346,8 +316,7 @@
       ref2Phone: document.getElementById('ref2-phone').value.trim(),
       ref2Address: document.getElementById('ref2-address').value.trim(),
       photoFile: photoInput.files[0] || null,
-      proofFile: proofInput.files[0] || null,
-      supportFile: supportInput.files[0] || null
+      proofFile: proofInput.files[0] || null
     };
 
     const previewBody = document.getElementById('modal-preview-body');
@@ -378,92 +347,79 @@
     document.getElementById('modal-preview').classList.remove('hidden');
   }
 
-  // Upload Files to Firebase Storage & Store in Firestore
+  // Upload Files to Back4App & Save Application Object
   async function executeFinalSubmission() {
-    if (!activeSessionUser || !pendingSubmissionPayload) return;
+    currentUser = Parse.User.current();
+    if (!currentUser || !pendingSubmissionPayload) return;
 
     const confirmBtn = document.getElementById('btn-preview-confirm');
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Uploading Documents...';
 
     try {
-      let photoUrl = '';
-      let proofUrl = '';
-      let supportUrl = '';
+      const Application = Parse.Object.extend("Application");
+      let appObj;
 
-      // Upload Photo
+      if (pendingSubmissionPayload.recordId) {
+        const query = new Parse.Query(Application);
+        appObj = await query.get(pendingSubmissionPayload.recordId);
+      } else {
+        appObj = new Application();
+      }
+
+      // Upload Photo File
       if (pendingSubmissionPayload.photoFile) {
-        const pRef = storage.ref(`photos/${activeSessionUser.uid}_${Date.now()}`);
-        const pSnap = await pRef.put(pendingSubmissionPayload.photoFile);
-        photoUrl = await pSnap.ref.getDownloadURL();
+        confirmBtn.textContent = 'Uploading Photo...';
+        const parsePhoto = new Parse.File("photo.jpg", pendingSubmissionPayload.photoFile);
+        await parsePhoto.save();
+        appObj.set("photo", parsePhoto);
       }
 
-      // Upload Address Proof
+      // Upload Address Proof File
       if (pendingSubmissionPayload.proofFile) {
-        const aRef = storage.ref(`proofs/${activeSessionUser.uid}_${Date.now()}`);
-        const aSnap = await aRef.put(pendingSubmissionPayload.proofFile);
-        proofUrl = await aSnap.ref.getDownloadURL();
-      }
-
-      // Upload Support File
-      if (pendingSubmissionPayload.supportFile) {
-        const sRef = storage.ref(`support/${activeSessionUser.uid}_${Date.now()}`);
-        const sSnap = await sRef.put(pendingSubmissionPayload.supportFile);
-        supportUrl = await sSnap.ref.getDownloadURL();
+        confirmBtn.textContent = 'Uploading Proof...';
+        const parseProof = new Parse.File("address_proof.jpg", pendingSubmissionPayload.proofFile);
+        await parseProof.save();
+        appObj.set("address_proof", parseProof);
       }
 
       confirmBtn.textContent = 'Saving Application...';
 
-      const appData = {
-        user_id: activeSessionUser.uid,
-        status: 'Payment Pending',
-        full_name: pendingSubmissionPayload.fullName,
-        gender: pendingSubmissionPayload.gender,
-        dob: pendingSubmissionPayload.dob,
-        nationality: pendingSubmissionPayload.nationality,
-        father_name: pendingSubmissionPayload.fatherName,
-        mother_name: pendingSubmissionPayload.motherName,
-        spouse_name: pendingSubmissionPayload.spouseName || null,
-        aadhaar_number: pendingSubmissionPayload.aadhaar,
-        passport_number: pendingSubmissionPayload.passport || null,
-        email: pendingSubmissionPayload.email,
-        mobile: pendingSubmissionPayload.mobile,
-        permanent_address: pendingSubmissionPayload.permAddress,
-        perm_city: pendingSubmissionPayload.permCity,
-        perm_state: pendingSubmissionPayload.permState,
-        perm_pin: pendingSubmissionPayload.permPin,
-        residence_duration: pendingSubmissionPayload.residenceDuration,
-        present_address: pendingSubmissionPayload.presentAddress,
-        address_proof_type: pendingSubmissionPayload.proofType,
-        purpose: pendingSubmissionPayload.purpose,
-        other_purpose: pendingSubmissionPayload.otherPurpose || null,
-        ref1_name: pendingSubmissionPayload.ref1Name,
-        ref1_phone: pendingSubmissionPayload.ref1Phone,
-        ref1_address: pendingSubmissionPayload.ref1Address,
-        ref2_name: pendingSubmissionPayload.ref2Name,
-        ref2_phone: pendingSubmissionPayload.ref2Phone,
-        ref2_address: pendingSubmissionPayload.ref2Address,
-        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-      };
+      appObj.set("user_id", currentUser.id);
+      appObj.set("status", "Payment Pending");
+      appObj.set("full_name", pendingSubmissionPayload.fullName);
+      appObj.set("gender", pendingSubmissionPayload.gender);
+      appObj.set("dob", pendingSubmissionPayload.dob);
+      appObj.set("nationality", pendingSubmissionPayload.nationality);
+      appObj.set("father_name", pendingSubmissionPayload.fatherName);
+      appObj.set("mother_name", pendingSubmissionPayload.motherName);
+      appObj.set("spouse_name", pendingSubmissionPayload.spouseName || "");
+      appObj.set("aadhaar_number", pendingSubmissionPayload.aadhaar);
+      appObj.set("passport_number", pendingSubmissionPayload.passport || "");
+      appObj.set("email", pendingSubmissionPayload.email);
+      appObj.set("mobile", pendingSubmissionPayload.mobile);
+      appObj.set("permanent_address", pendingSubmissionPayload.permAddress);
+      appObj.set("perm_city", pendingSubmissionPayload.permCity);
+      appObj.set("perm_state", pendingSubmissionPayload.permState);
+      appObj.set("perm_pin", pendingSubmissionPayload.permPin);
+      appObj.set("residence_duration", pendingSubmissionPayload.residenceDuration);
+      appObj.set("present_address", pendingSubmissionPayload.presentAddress);
+      appObj.set("address_proof_type", pendingSubmissionPayload.proofType);
+      appObj.set("purpose", pendingSubmissionPayload.purpose);
+      appObj.set("other_purpose", pendingSubmissionPayload.otherPurpose || "");
+      appObj.set("ref1_name", pendingSubmissionPayload.ref1Name);
+      appObj.set("ref1_phone", pendingSubmissionPayload.ref1Phone);
+      appObj.set("ref1_address", pendingSubmissionPayload.ref1Address);
+      appObj.set("ref2_name", pendingSubmissionPayload.ref2Name);
+      appObj.set("ref2_phone", pendingSubmissionPayload.ref2Phone);
+      appObj.set("ref2_address", pendingSubmissionPayload.ref2Address);
 
-      if (photoUrl) appData.photo_url = photoUrl;
-      if (proofUrl) appData.address_proof_url = proofUrl;
-      if (supportUrl) appData.supporting_doc_url = supportUrl;
-
-      let savedId = pendingSubmissionPayload.recordId;
-
-      if (savedId) {
-        await db.collection('applications').doc(savedId).update(appData);
-      } else {
-        appData.created_at = firebase.firestore.FieldValue.serverTimestamp();
-        const docRef = await db.collection('applications').add(appData);
-        savedId = docRef.id;
-      }
+      const savedApp = await appObj.save();
 
       document.getElementById('modal-preview').classList.add('hidden');
       document.getElementById('form-clearance-app').reset();
       showToast('Application submitted! Please proceed to payment.', 'success');
-      openPaymentInterface(savedId);
+      openPaymentInterface(savedApp.id);
 
     } catch (err) {
       showToast('Submission failed: ' + err.message, 'error');
@@ -473,51 +429,48 @@
     }
   }
 
-  // Save Draft in Firestore
+  // Save Draft
   async function handleSaveDraft() {
-    if (!activeSessionUser) {
+    currentUser = Parse.User.current();
+    if (!currentUser) {
       showToast('Sign in required to save draft.', 'warning');
       return;
     }
 
     try {
+      const Application = Parse.Object.extend("Application");
       const recordId = document.getElementById('app-record-id').value;
-      const draftData = {
-        user_id: activeSessionUser.uid,
-        status: 'Draft',
-        full_name: document.getElementById('app-fullname').value.trim() || 'Untitled Draft',
-        gender: document.getElementById('app-gender').value || 'Male',
-        dob: document.getElementById('app-dob').value || '2000-01-01',
-        nationality: document.getElementById('app-nationality').value.trim() || 'India',
-        father_name: document.getElementById('app-father-name').value.trim() || 'N/A',
-        mother_name: document.getElementById('app-mother-name').value.trim() || 'N/A',
-        aadhaar_number: document.getElementById('app-aadhaar').value.trim() || '000000000000',
-        email: document.getElementById('app-email').value.trim() || activeSessionUser.email,
-        mobile: document.getElementById('app-mobile').value.trim() || '9999999999',
-        permanent_address: document.getElementById('app-perm-address').value.trim() || 'N/A',
-        perm_city: document.getElementById('app-perm-city').value.trim() || 'N/A',
-        perm_state: document.getElementById('app-perm-state').value.trim() || 'N/A',
-        perm_pin: document.getElementById('app-perm-pin').value.trim() || '000000',
-        residence_duration: document.getElementById('app-residence-duration').value.trim() || 'N/A',
-        address_proof_type: document.getElementById('app-proof-type').value || 'Aadhaar',
-        purpose: document.getElementById('app-purpose').value || 'Employment',
-        ref1_name: document.getElementById('ref1-name').value.trim() || 'N/A',
-        ref1_phone: document.getElementById('ref1-phone').value.trim() || '9999999999',
-        ref1_address: document.getElementById('ref1-address').value.trim() || 'N/A',
-        ref2_name: document.getElementById('ref2-name').value.trim() || 'N/A',
-        ref2_phone: document.getElementById('ref2-phone').value.trim() || '9999999999',
-        ref2_address: document.getElementById('ref2-address').value.trim() || 'N/A',
-        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-      };
+      let appObj;
 
       if (recordId) {
-        await db.collection('applications').doc(recordId).update(draftData);
+        const query = new Parse.Query(Application);
+        appObj = await query.get(recordId);
       } else {
-        draftData.created_at = firebase.firestore.FieldValue.serverTimestamp();
-        await db.collection('applications').add(draftData);
+        appObj = new Application();
       }
 
-      showToast('Draft saved to online account.', 'info');
+      appObj.set("user_id", currentUser.id);
+      appObj.set("status", "Draft");
+      appObj.set("full_name", document.getElementById('app-fullname').value.trim() || 'Untitled Draft');
+      appObj.set("gender", document.getElementById('app-gender').value || 'Male');
+      appObj.set("dob", document.getElementById('app-dob').value || '2000-01-01');
+      appObj.set("nationality", document.getElementById('app-nationality').value.trim() || 'India');
+      appObj.set("father_name", document.getElementById('app-father-name').value.trim() || 'N/A');
+      appObj.set("mother_name", document.getElementById('app-mother-name').value.trim() || 'N/A');
+      appObj.set("aadhaar_number", document.getElementById('app-aadhaar').value.trim() || '000000000000');
+      appObj.set("email", document.getElementById('app-email').value.trim() || currentUser.get('email'));
+      appObj.set("mobile", document.getElementById('app-mobile').value.trim() || '9999999999');
+      appObj.set("permanent_address", document.getElementById('app-perm-address').value.trim() || 'N/A');
+      appObj.set("perm_city", document.getElementById('app-perm-city').value.trim() || 'N/A');
+      appObj.set("perm_state", document.getElementById('app-perm-state').value.trim() || 'N/A');
+      appObj.set("perm_pin", document.getElementById('app-perm-pin').value.trim() || '000000');
+      appObj.set("residence_duration", document.getElementById('app-residence-duration').value.trim() || 'N/A');
+      appObj.set("address_proof_type", document.getElementById('app-proof-type').value || 'Aadhaar');
+      appObj.set("purpose", document.getElementById('app-purpose').value || 'Employment');
+
+      await appObj.save();
+
+      showToast('Draft saved successfully.', 'info');
       switchDashTab('tab-overview');
     } catch (err) {
       showToast('Failed to save draft: ' + err.message, 'error');
@@ -529,20 +482,20 @@
      ============================================================================= */
 
   async function loadApplicantApplications() {
-    if (!activeSessionUser) return;
+    currentUser = Parse.User.current();
+    if (!currentUser) return;
     const container = document.getElementById('applicant-records-container');
 
     try {
-      const snap = await db.collection('applications')
-        .where('user_id', '==', activeSessionUser.uid)
-        .get();
+      const Application = Parse.Object.extend("Application");
+      const query = new Parse.Query(Application);
+      query.equalTo("user_id", currentUser.id);
+      query.descending("createdAt");
 
-      cachedApplicantApps = [];
-      snap.forEach(doc => {
-        cachedApplicantApps.push({ id: doc.id, ...doc.data() });
-      });
+      const results = await query.find();
+      cachedApplicantApps = results.map(r => ({ id: r.id, ...r.attributes, parseObj: r }));
 
-      // Update Metric Counters
+      // Metric Counters
       document.getElementById('count-app-all').textContent = cachedApplicantApps.length;
       document.getElementById('count-app-draft').textContent = cachedApplicantApps.filter(a => a.status === 'Draft').length;
       document.getElementById('count-app-paypending').textContent = cachedApplicantApps.filter(a => a.status === 'Payment Pending').length;
@@ -578,7 +531,7 @@
 
     apps.forEach(app => {
       let actionBtn = '';
-      if (app.status === 'Draft' || app.status === 'Additional Information Required') {
+      if (app.status === 'Draft') {
         actionBtn = `<button type="button" class="btn btn-outline btn-sm btn-act-edit" data-id="${app.id}">Edit / Resubmit</button>`;
       } else if (app.status === 'Payment Pending') {
         actionBtn = `<button type="button" class="btn btn-gold btn-sm btn-act-pay" data-id="${app.id}">Pay ₹100</button>`;
@@ -665,11 +618,12 @@
     let payee = JCC_CONFIG.ownerName;
 
     try {
-      const cfgSnap = await db.collection('system_settings').doc('general').get();
-      if (cfgSnap.exists) {
-        const cfg = cfgSnap.data();
-        upiId = cfg.upi_id || upiId;
-        payee = cfg.payee_name || payee;
+      const SystemSettings = Parse.Object.extend("SystemSettings");
+      const query = new Parse.Query(SystemSettings);
+      const res = await query.first();
+      if (res) {
+        upiId = res.get('upi_id') || upiId;
+        payee = res.get('payee_name') || payee;
       }
     } catch (_) {}
 
@@ -704,22 +658,20 @@
     submitBtn.textContent = 'Uploading Proof...';
 
     try {
-      let screenshotUrl = '';
+      const Application = Parse.Object.extend("Application");
+      const query = new Parse.Query(Application);
+      const appObj = await query.get(appId);
+
       if (screenshotInput.files.length > 0) {
-        const file = screenshotInput.files[0];
-        const sRef = storage.ref(`payments/${activeSessionUser.uid}_${Date.now()}`);
-        const snap = await sRef.put(file);
-        screenshotUrl = await snap.ref.getDownloadURL();
+        const parseScreenshot = new Parse.File("screenshot.jpg", screenshotInput.files[0]);
+        await parseScreenshot.save();
+        appObj.set("payment_screenshot", parseScreenshot);
       }
 
-      const updatePayload = {
-        payment_utr: utr,
-        status: 'Payment Verification Pending',
-        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if (screenshotUrl) updatePayload.payment_screenshot_url = screenshotUrl;
+      appObj.set("payment_utr", utr);
+      appObj.set("status", "Payment Verification Pending");
 
-      await db.collection('applications').doc(appId).update(updatePayload);
+      await appObj.save();
 
       showToast('Payment submitted for administrator review.', 'success');
       document.getElementById('form-payment-submission').reset();
@@ -733,19 +685,29 @@
   }
 
   /* =============================================================================
-     ADMIN DASHBOARD & REALTIME SUBSCRIPTIONS
+     ADMIN DASHBOARD & CONTROL PANEL
      ============================================================================= */
 
   async function loadAdminApplications() {
-    if (!isUserAdmin) return;
+    currentUser = Parse.User.current();
+    if (!currentUser || currentUser.get('email').toLowerCase() !== JCC_CONFIG.adminEmail.toLowerCase()) return;
+
     const container = document.getElementById('admin-table-container');
 
     try {
-      const snap = await db.collection('applications').get();
-      cachedAdminApps = [];
-      snap.forEach(doc => {
-        cachedAdminApps.push({ id: doc.id, ...doc.data() });
-      });
+      const Application = Parse.Object.extend("Application");
+      const query = new Parse.Query(Application);
+      query.descending("createdAt");
+
+      const results = await query.find();
+      cachedAdminApps = results.map(r => ({
+        id: r.id,
+        ...r.attributes,
+        photo_url: r.get('photo') ? r.get('photo').url() : '',
+        address_proof_url: r.get('address_proof') ? r.get('address_proof').url() : '',
+        payment_screenshot_url: r.get('payment_screenshot') ? r.get('payment_screenshot').url() : '',
+        parseObj: r
+      }));
 
       document.getElementById('admin-count-all').textContent = cachedAdminApps.length;
       document.getElementById('admin-count-payverify').textContent = cachedAdminApps.filter(a => a.status === 'Payment Verification Pending').length;
@@ -823,12 +785,6 @@
     });
   }
 
-  function subscribeToLiveApplications() {
-    db.collection('applications').onSnapshot(() => {
-      loadAdminApplications();
-    });
-  }
-
   function openAdminReviewModal(appId) {
     const app = cachedAdminApps.find(a => a.id === appId);
     if (!app) return;
@@ -882,27 +838,24 @@
 
     modal.classList.remove('hidden');
 
-    document.getElementById('btn-adm-approve').onclick = () => updateAdminStatus(app.id, 'Approved');
-    document.getElementById('btn-adm-issue').onclick = () => issueCertificateFirestore(app);
+    document.getElementById('btn-adm-approve').onclick = () => updateAdminStatus(app.parseObj, 'Approved');
+    document.getElementById('btn-adm-issue').onclick = () => issueCertificateParse(app.parseObj, app);
     document.getElementById('btn-adm-reject').onclick = () => {
       const reason = prompt('Enter the formal reason for rejection:');
       if (reason && reason.trim()) {
-        updateAdminStatus(app.id, 'Rejected', reason.trim());
+        updateAdminStatus(app.parseObj, 'Rejected', reason.trim());
       }
     };
   }
 
-  async function updateAdminStatus(appId, newStatus, reason = '') {
+  async function updateAdminStatus(parseObj, newStatus, reason = '') {
     try {
       const notes = document.getElementById('adm-notes')?.value || '';
-      const updateData = {
-        status: newStatus,
-        admin_notes: notes,
-        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if (reason) updateData.rejection_reason = reason;
+      parseObj.set("status", newStatus);
+      parseObj.set("admin_notes", notes);
+      if (reason) parseObj.set("rejection_reason", reason);
 
-      await db.collection('applications').doc(appId).update(updateData);
+      await parseObj.save();
       showToast(`Status updated to ${newStatus}.`, 'success');
       document.getElementById('modal-admin-review').classList.add('hidden');
       loadAdminApplications();
@@ -911,7 +864,7 @@
     }
   }
 
-  async function issueCertificateFirestore(app) {
+  async function issueCertificateParse(parseObj, app) {
     try {
       const certNo = 'JCC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
       const issueDate = new Date().toISOString().split('T')[0];
@@ -920,26 +873,23 @@
       expiryD.setMonth(expiryD.getMonth() + 6);
       const expiryDate = expiryD.toISOString().split('T')[0];
 
-      // Save to certificates collection
-      await db.collection('certificates').doc(certNo).set({
-        certificate_number: certNo,
-        application_id: app.id,
-        user_id: app.user_id,
-        applicant_name: app.full_name,
-        issue_date: issueDate,
-        expiry_date: expiryDate,
-        is_revoked: false,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      // Save to Certificate Class
+      const Certificate = Parse.Object.extend("Certificate");
+      const certObj = new Certificate();
+      certObj.set("certificate_number", certNo);
+      certObj.set("application_id", parseObj.id);
+      certObj.set("applicant_name", app.full_name);
+      certObj.set("issue_date", issueDate);
+      certObj.set("expiry_date", expiryDate);
+      certObj.set("is_revoked", false);
+      await certObj.save();
 
-      // Update application record
-      await db.collection('applications').doc(app.id).update({
-        status: 'Certificate Issued',
-        certificate_number: certNo,
-        issue_date: issueDate,
-        expiry_date: expiryDate,
-        updated_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      // Update Application Record
+      parseObj.set("status", "Certificate Issued");
+      parseObj.set("certificate_number", certNo);
+      parseObj.set("issue_date", issueDate);
+      parseObj.set("expiry_date", expiryDate);
+      await parseObj.save();
 
       showToast(`Certificate ${certNo} issued!`, 'success');
       document.getElementById('modal-admin-review').classList.add('hidden');
@@ -969,10 +919,14 @@
     submitBtn.textContent = 'Verifying Record...';
 
     try {
-      const doc = await db.collection('certificates').doc(certNo).get();
+      const Certificate = Parse.Object.extend("Certificate");
+      const query = new Parse.Query(Certificate);
+      query.equalTo("certificate_number", certNo);
+      const certRecord = await query.first();
+
       resultBox.classList.remove('hidden');
 
-      if (!doc.exists) {
+      if (!certRecord) {
         resultBox.className = 'verify-result-box verify-invalid';
         resultBox.innerHTML = `
           <h4 style="color:var(--danger);">❌ Certificate Not Found</h4>
@@ -981,9 +935,10 @@
         return;
       }
 
-      const data = doc.data();
-      const isExpired = new Date() > new Date(data.expiry_date);
-      const isValid = !data.is_revoked && !isExpired;
+      const expiryDateStr = certRecord.get('expiry_date');
+      const isExpired = new Date() > new Date(expiryDateStr);
+      const isRevoked = certRecord.get('is_revoked') || false;
+      const isValid = !isRevoked && !isExpired;
 
       resultBox.className = `verify-result-box ${isValid ? 'verify-valid' : 'verify-invalid'}`;
       resultBox.innerHTML = `
@@ -992,14 +947,14 @@
             ${isValid ? '✅ Verified Legitimate Certificate' : '⚠️ Certificate Invalid'}
           </h4>
           <span class="badge-status ${isValid ? 'badge-status-success' : 'badge-status-danger'}">
-            ${data.is_revoked ? 'Revoked' : (isExpired ? 'Expired' : 'Valid & Active')}
+            ${isRevoked ? 'Revoked' : (isExpired ? 'Expired' : 'Valid & Active')}
           </span>
         </div>
         <div style="margin-top:0.75rem; font-size:0.9375rem; line-height:1.7;">
-          <p><strong>Certificate Serial:</strong> <code>${escapeHtml(data.certificate_number)}</code></p>
-          <p><strong>Candidate Name:</strong> ${escapeHtml(data.applicant_name)}</p>
-          <p><strong>Date of Issuance:</strong> ${data.issue_date}</p>
-          <p><strong>Valid Through:</strong> ${data.expiry_date}</p>
+          <p><strong>Certificate Serial:</strong> <code>${escapeHtml(certRecord.get('certificate_number'))}</code></p>
+          <p><strong>Candidate Name:</strong> ${escapeHtml(certRecord.get('applicant_name'))}</p>
+          <p><strong>Date of Issuance:</strong> ${certRecord.get('issue_date')}</p>
+          <p><strong>Valid Through:</strong> ${certRecord.get('expiry_date')}</p>
         </div>
         <div style="margin-top:0.75rem; border-top:1px solid #E2E8F0; padding-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">
           <em>Notice: ${JCC_CONFIG.disclaimerText}</em>
@@ -1167,10 +1122,13 @@
     }
 
     try {
-      await db.collection('contact_messages').add({
-        name, email, subject, message,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      const ContactMessage = Parse.Object.extend("ContactMessage");
+      const contactObj = new ContactMessage();
+      contactObj.set("name", name);
+      contactObj.set("email", email);
+      contactObj.set("subject", subject);
+      contactObj.set("message", message);
+      await contactObj.save();
 
       showToast('Your message has been stored in our registry desk.', 'success');
       document.getElementById('form-contact').reset();
@@ -1184,6 +1142,8 @@
      ============================================================================= */
 
   document.addEventListener('DOMContentLoaded', () => {
+    updateNavAuthUI();
+
     // Mobile Hamburger
     const menuToggle = document.getElementById('menu-toggle');
     const siteNav = document.getElementById('site-nav');
@@ -1321,11 +1281,12 @@
     document.getElementById('btn-admin-upi-config')?.addEventListener('click', async () => {
       const modal = document.getElementById('modal-admin-upi');
       try {
-        const snap = await db.collection('system_settings').doc('general').get();
-        if (snap.exists) {
-          const cfg = snap.data();
-          document.getElementById('cfg-upi-id').value = cfg.upi_id || '';
-          document.getElementById('cfg-payee-name').value = cfg.payee_name || '';
+        const SystemSettings = Parse.Object.extend("SystemSettings");
+        const query = new Parse.Query(SystemSettings);
+        const res = await query.first();
+        if (res) {
+          document.getElementById('cfg-upi-id').value = res.get('upi_id') || '';
+          document.getElementById('cfg-payee-name').value = res.get('payee_name') || '';
         }
       } catch (_) {}
       modal.classList.remove('hidden');
@@ -1337,11 +1298,14 @@
       const payee = document.getElementById('cfg-payee-name').value.trim();
 
       try {
-        await db.collection('system_settings').doc('general').set({
-          upi_id: upiId,
-          payee_name: payee,
-          updated_at: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        const SystemSettings = Parse.Object.extend("SystemSettings");
+        const query = new Parse.Query(SystemSettings);
+        let res = await query.first();
+        if (!res) res = new SystemSettings();
+
+        res.set('upi_id', upiId);
+        res.set('payee_name', payee);
+        await res.save();
 
         showToast('UPI payment configuration saved.', 'success');
         document.getElementById('modal-admin-upi').classList.add('hidden');

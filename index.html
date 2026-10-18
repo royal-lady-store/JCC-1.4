@@ -6,11 +6,8 @@
   <title>JCC — Jahir Clearance Certificate | Verification &amp; Application Portal</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Firebase App & Service Libraries (Compat SDKs for seamless single-bundle use) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+  <!-- Parse / Back4App SDK -->
+  <script src="https://npmcdn.com/parse/dist/parse.min.js"></script>
 
   <!-- Client-side Utilities -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
@@ -169,10 +166,6 @@
           <h2 class="text-center">Create Live Account</h2>
           <p class="text-muted text-sm text-center form-sub">Register your account to manage applications from any device.</p>
           <form id="form-register" novalidate>
-            <div class="form-group">
-              <label for="reg-userid">Username *</label>
-              <input type="text" id="reg-userid" class="form-control" placeholder="e.g. rahul99" required autocomplete="username" />
-            </div>
             <div class="form-group">
               <label for="reg-fullname">Full Legal Name *</label>
               <input type="text" id="reg-fullname" class="form-control" placeholder="As written in official records" required />
@@ -494,12 +487,6 @@
                       <input type="text" id="app-other-purpose" class="form-control" />
                     </div>
                   </div>
-
-                  <div class="form-group">
-                    <label for="app-support-file">Supporting Document (PDF Only, Max 2 MB)</label>
-                    <input type="file" id="app-support-file" class="form-control" accept=".pdf" />
-                    <small class="form-hint">Optional: Appointment letter, tenancy memorandum, or admission memo.</small>
-                  </div>
                 </fieldset>
 
                 <!-- Section 4: Two Local References -->
@@ -603,7 +590,7 @@
         <div class="admin-topbar">
           <div>
             <h2>Staff Operations Control Panel</h2>
-            <p class="text-muted">Live database synchronized: review submissions, audit payments, inspect credentials, and manage certificates.</p>
+            <p class="text-muted">Live Back4App database: review submissions, audit payments, inspect credentials, and manage certificates.</p>
           </div>
           <div class="admin-quick-actions">
             <button type="button" class="btn btn-outline btn-sm" id="btn-admin-refresh">🔄 Refresh</button>
@@ -649,7 +636,6 @@
             <option value="Payment Verification Pending">Payment Verification Pending</option>
             <option value="Pending for Approval">Pending for Approval</option>
             <option value="Under Review">Under Review</option>
-            <option value="Additional Information Required">Additional Information Required</option>
             <option value="Approved">Approved</option>
             <option value="Certificate Issued">Certificate Issued</option>
             <option value="Rejected">Rejected</option>
